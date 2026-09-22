@@ -3,7 +3,8 @@
 > **这份文档是写给 AI 读的。** 目标是：任何一个从未见过本项目的 AI，读完之后能够准确解释它的工作原理、
 > 安全地修改代码、并正确地发布上线。文档自包含，不需要额外的对话历史或外部链接。
 >
-> 文档版本：2026-09-22 · 对应代码提交 `feb2b52` · 语言：中文（技术术语保留英文原名）
+> 文档版本：2026-09-22 · 语言：中文（技术术语保留英文原名）
+> 状态：已上线并绑定自定义域名 **https://pan.gelun.eu.cc/**（Cloudflare 代理）
 
 ---
 
@@ -16,7 +17,8 @@
 | 数据存哪 | 浏览器的 `localStorage`（明文，仅演示用） |
 | 技术栈 | Next.js 15 App Router + `output: "export"` 静态导出 + React 18 + TypeScript + Tailwind CSS |
 | 构建产物 | 纯静态文件，`out/` 目录，约 **1.05 MB / 43 个文件** |
-| 部署在哪 | GitHub Pages —— https://gelunpan.github.io/pgl-tools/ |
+| 部署在哪 | GitHub Pages —— **https://pan.gelun.eu.cc/**（自定义域名 + Cloudflare 代理） |
+| 旧地址 | `https://gelunpan.github.io/pgl-tools/` → **301 自动跳转**到新域名，不会失效 |
 | 怎么发布 | 本地跑 `.\deploy.ps1 "说明"` → 推送 → GitHub Actions 自动构建部署（约 1 分钟） |
 | 源码规模 | `src/` 下仅 **23 个文件**（含 1 个 favicon），无任何遗留业务代码 |
 | 一句话原理 | **构建时把所有页面预渲染成 HTML/JS 静态文件；运行时全部逻辑在浏览器里跑，用 localStorage 当数据库** |
@@ -375,20 +377,56 @@ $env:NEXT_PUBLIC_BASE_PATH="/pgl-tools"; npm run build
 NEXT_PUBLIC_BASE_PATH="/pgl-tools" npm run build
 ```
 
-**CI 里自动推导**（`.github/workflows/deploy.yml` 的 Resolve basePath 步骤）：
+**CI 里自动推导**（`.github/workflows/deploy.yml` 的 Resolve basePath 步骤），三个分支：
 
 ```bash
 REPO="<仓库名>"
 OWNER_LOWER=$(echo "<owner>" | tr 'A-Z' 'a-z')
-if [ "$REPO" = "${OWNER_LOWER}.github.io" ]; then
+
+# ① 仓库已绑定自定义域名 → 站点挂在【域名根路径】下，basePath 必须留空
+CNAME=$(gh api "repos/<owner>/<repo>/pages" --jq '.cname // ""' 2>/dev/null || echo "")
+
+if [ -n "$CNAME" ]; then
+  value=            # 自定义域名 → 留空（本项目当前就是这种情况）
+elif [ "$REPO" = "${OWNER_LOWER}.github.io" ]; then
   value=            # 用户主页站点 → 留空
 else
-  value=/$REPO      # 项目站点 → /pgl-tools
+  value=/$REPO      # 普通项目站点 → /pgl-tools
 fi
 ```
 
-> 💡 这段逻辑的价值：如果哪天这个仓库被改名，或搬到用户主页仓库，
-> **不需要改任何代码**，CI 会自动算出正确的 basePath。
+> 💡 这段逻辑的价值：
+> - 仓库改名 / 搬到用户主页仓库 → **不需要改代码**，CI 自动算出正确的 basePath。
+> - 绑定或解绑自定义域名 → **也不需要改代码**，CI 从 GitHub 的 Pages 设置里读真实状态。
+>
+> ⚠️ 查询失败时会退回 `/REPO` 分支（保证 `github.io` 地址可用）。若看到站点在自定义域名下白屏，
+> 先去 Actions 日志确认 `Resolve basePath` 步骤打印的是哪一行。
+
+### 5.2.1 🔴 自定义域名会改变站点的路径位置（本项目已踩过）
+
+这是最容易漏、后果最严重的一条规则：
+
+| Pages 配置 | 站点实际位置 | 正确 basePath |
+|---|---|---|
+| 无自定义域名（项目站点） | `https://<user>.github.io/<repo>/` | `/<repo>` |
+| **已绑定自定义域名** | `https://<domain>/` ← **域名根，没有 /<repo> 前缀** | `""`（空） |
+
+**为什么**：GitHub Pages 按请求的 `Host` 头路由。当访问的是自定义域名，GitHub 查出该域名对应哪个仓库，
+直接把该仓库的 Pages 根（即 `out/` 的内容）挂在 `/` 下 —— 于是 `/_next/…`、`/login/` 都在根。
+
+**如果 basePath 没跟着改会怎样**：HTML 里仍写死 `/pgl-tools/_next/…`，
+这些地址在域名根下**全部 404** → 页面 HTML 能打开、但 CSS/JS 全挂 → **白屏**。
+
+实测证据（本项目 2026-09-22 绑定 `pan.gelun.eu.cc` 后）：
+
+```
+GET https://pan.gelun.eu.cc/          -> 200，HTML 内资源为 /_next/static/...   ✅
+GET https://pan.gelun.eu.cc/pgl-tools/_next/...css -> 404                        （子路径不存在）
+GET https://pan.gelun.eu.cc/_next/...css           -> 200                        ✅
+```
+
+> 🔴 **纯前端 + 静态导出 + 子文件夹路径** 这三者组合下，DNS 层永远解决不了这个前缀问题
+> ——因为改动的是「站点挂载在哪」，只有构建时的 basePath 能决定。
 
 ### 5.3 CI 流水线（`.github/workflows/deploy.yml`）
 
@@ -398,7 +436,7 @@ fi
 ┌─ Job: build（ubuntu-latest）────────────────────────────────────┐
 │ 1. actions/checkout@v4                                          │
 │ 2. actions/setup-node@v4  → node 20 + npm cache                 │
-│ 3. Resolve basePath       → 推导 /<repo>，写入 GITHUB_OUTPUT      │
+│ 3. Resolve basePath       → 已绑自定义域名则留空，否则 /<repo>     │
 │ 4. npm install --no-audit --no-fund                             │
 │ 5. npm run build          → 注入 NEXT_PUBLIC_BASE_PATH → out/    │
 │ 6. touch out/.nojekyll    → 防止 Jekyll 忽略 _next/ 目录          │
@@ -469,11 +507,79 @@ powershell -ExecutionPolicy Bypass -File .\deploy.ps1 "说明"
 |---|---|---|
 | 命令 | `npm run dev` | `.\deploy.ps1 "说明"` |
 | 生效速度 | 保存文件后**秒级**热更新 | 推送后**约 1 分钟** |
-| 谁可见 | 只有你自己（`localhost:9002`） | 所有人（`gelunpan.github.io/pgl-tools`） |
+| 谁可见 | 只有你自己（`localhost:9002`） | 所有人（`pan.gelun.eu.cc`） |
 | 是否自动 | 是 | 否，**每次都要推送** |
 
 > 🔴 **改代码不会让线上页面实时变化。** 线上是一堆已经构建好的静态文件，
 > 必须推送 → 触发 Actions → 重新构建 → 才更新。
+
+### 5.6 自定义域名 + Cloudflare 全貌（当前生效状态）
+
+```
+用户浏览器
+   │  https://pan.gelun.eu.cc/
+   ▼
+Cloudflare（橙色云朵 = 已代理）        免费 SSL、CDN 缓存、隐藏源站
+   │  SSL 模式必须是「完整 / Full」
+   ▼
+GitHub Pages（Host: pan.gelun.eu.cc）
+   │  GitHub 按 Host 查到该域名属于 pgl-tools 仓库
+   ▼
+out/ 的内容直接挂在域名根路径 / 下      ← 所以 basePath 必须留空
+```
+
+**四段配置分别在哪里、是什么**
+
+| 环节 | 位置 | 当前值 |
+|---|---|---|
+| DNS | Cloudflare → DNS → 记录 | `CNAME` · 名称 `pan` · 目标 `gelunpan.github.io` · 代理状态：**可橘可灰**（见下） |
+| 自定义域名 | GitHub 仓库 → Settings → Pages → Custom domain | `pan.gelun.eu.cc` |
+| HTTPS 证书 | GitHub 自动签发（Let's Encrypt） | 状态 `approved` ✅ |
+| 强制 HTTPS | 同上页面 → Enforce HTTPS | **已开启** ✅（`http://` → 301 → `https://`） |
+
+**🔴 DNS 的关键细节（很多人在这里配错）**
+
+- CNAME 的目标**只能填裸域名** `gelunpan.github.io`，**绝不能带仓库名或路径**。
+  `gelunpan.github.io/pgl-tools` 是无效的 —— DNS 层不识别斜杠，Cloudflare 会直接拒绝保存。
+- 「访问域名 → 打开子文件夹」这件事**不是 DNS 能做的**，只能由构建时的 `basePath` 决定（见 §5.2.1）。
+- 子域名用 **CNAME**；如果用裸域（apex）则必须用 **A 记录**指向 GitHub 的 4 个 IP：
+  `185.199.108.153 / 109 / 110 / 111`。
+
+**🔴 Cloudflare 代理（橙色云朵）的两个硬要求**
+
+1. **SSL/TLS 模式必须是「完整 / Full」，绝不能选「灵活 / Flexible」。**
+   因为 GitHub Pages 强制把 HTTP 跳转到 HTTPS；若 Cloudflare 用 HTTP 回源，
+   就会形成 `CF → HTTP → GitHub → 301 HTTPS → CF → …` 的**无限重定向循环**。
+   （「完全（严格）/ Full Strict」也能用，但没必要，Full 更省心。）
+2. **首次绑定域名时先保持灰色云朵（仅 DNS）**，等 GitHub 把证书签下来、验收通过后再切橙色。
+   开着代理时外部解析器只能看到 Cloudflare 的 IP，GitHub 的域名校验可能报 `InvalidDNSError`。
+
+**Actions 工作流的部署方式决定了一件重要的事**
+
+本项目用的是 **Actions 部署**（`build_type: workflow`），所以：
+**不需要在仓库里放 `CNAME` 文件**。GitHub 官方明确说明，Actions 部署时
+「不会创建 `CNAME` 文件，且已存在的 `CNAME` 文件会被忽略、也不是必需」。
+域名以 **Settings → Pages 里的设置**为准 —— 这也是为什么工作流要从 Pages API 读 `cname`。
+
+**验收命令（改完 DNS/域名后自查）**
+
+```bash
+# 1. DNS 是否指向 GitHub（应看到 185.199.108-111.153）
+nslookup pan.gelun.eu.cc
+
+# 2. 站点是否在域名根正常返回，且资源是根路径 /_next/
+curl -sI https://pan.gelun.eu.cc/ | head -3
+curl -s https://pan.gelun.eu.cc/ | grep -o '/_next/static/css/[^"]*' | head -1
+
+# 3. http 是否强制跳 https（期望 301）
+curl -sI http://pan.gelun.eu.cc/ | head -2
+
+# 4. 旧地址是否自动跳新域名（期望 301 → https://pan.gelun.eu.cc/）
+curl -sI https://gelunpan.github.io/pgl-tools/ | head -2
+```
+
+**⚠️ 安全提醒（建议做）**：在 GitHub 账号级设置里**验证域名所有权**（添加一条 `_github-pages-challenge-*`
+的 TXT 记录）。否则万一以后仓库被删或改名，该域名可能被他人抢注到自己的 Pages 站点上（域名接管）。
 
 ---
 
@@ -492,6 +598,8 @@ powershell -ExecutionPolicy Bypass -File .\deploy.ps1 "说明"
 | 5 | **不要删 `manifest.ts` 里的 `export const dynamic = "force-static";`** | 构建报错 |
 | 6 | **不要从 `next.config.ts` 删 `images.unoptimized`** | 静态导出下图片优化服务不存在，构建失败 |
 | 7 | **不要删 `public/.nojekyll`** 或 CI 里的 `touch out/.nojekyll` | GitHub Pages 的 Jekyll 会忽略 `_next/` 目录，站点白屏 |
+| 8 | **不要删掉工作流里「自定义域名 → basePath 留空」这个分支**，也不要把 basePath 写死 | 本项目已绑自定义域名，站点在域名根；一旦 basePath 被固定成 `/pgl-tools`，线上立刻白屏（见 §5.2.1） |
+| 9 | **不要把 Cloudflare 的 SSL 模式改成「灵活 / Flexible」** | GitHub 强制 HTTPS，会造成无限重定向循环 |
 
 ### 6.2 改的时候要小心
 
@@ -570,9 +678,11 @@ npm run build            # 2. 确认能正常构建（可选但推荐）
 **发布后自查清单**：
 
 - [ ] Actions 页面最新 run 是 ✅ build + ✅ deploy
-- [ ] 打开 https://gelunpan.github.io/pgl-tools/ 能看到登录页（而不是 404 或白屏）
+- [ ] 打开 **https://pan.gelun.eu.cc/** 能看到登录页（而不是 404 或白屏）
 - [ ] `/login/`、`/signup/`、`/welcome/` 均可正常访问与跳转
 - [ ] 浏览器 DevTools → Application → Local Storage 里有 `careercompass_users` / `careercompass_session`
+- [ ] 🔴 若白屏：先按 F12 看 Network，如果 `_next/...` 报 404 → **是 basePath 与站点位置不匹配**，
+      去 Actions 日志看 `Resolve basePath` 步骤走了哪个分支（见 §5.2.1）
 
 ---
 
@@ -625,7 +735,11 @@ npm run build            # 2. 确认能正常构建（可选但推荐）
 package.json name   pgl-tools
 
 仓库                https://github.com/GelunPan/pgl-tools   （public，默认分支 main）
-线上站点            https://gelunpan.github.io/pgl-tools/
+线上站点            https://pan.gelun.eu.cc/                （自定义域名 + Cloudflare 代理）
+旧地址              https://gelunpan.github.io/pgl-tools/   → 301 跳到上面的域名
+域名 DNS            Cloudflare：CNAME  pan  →  gelunpan.github.io
+Pages 自定义域名    pan.gelun.eu.cc（Actions 部署，无需 CNAME 文件）
+HTTPS               GitHub 自动签发，cert=approved，已开启强制 HTTPS
 Actions 日志        https://github.com/GelunPan/pgl-tools/actions
 本地开发            http://localhost:9002   （端口由 package.json 固定）
 

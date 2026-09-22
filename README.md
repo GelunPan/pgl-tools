@@ -72,11 +72,23 @@ npx serve out
 | 项 | 值 |
 | --- | --- |
 | 仓库 | https://github.com/GelunPan/pgl-tools |
-| 站点 | **https://gelunpan.github.io/pgl-tools/** |
+| 站点 | **https://pan.gelun.eu.cc/** （自定义域名 + Cloudflare 代理） |
+| 旧地址 | https://gelunpan.github.io/pgl-tools/ → 301 自动跳到上面的域名 |
 | 部署流水线 | https://github.com/GelunPan/pgl-tools/actions |
 
 推送 `main` 分支后，`.github/workflows/deploy.yml` 会自动构建并发布，无需任何手动操作。
-工作流会自动判断仓库类型并注入正确的 `basePath`（本项目为 `/pgl-tools`）。
+
+工作流会**自动判断站点挂在哪种路径下**并注入正确的 `basePath`：
+
+| 情况 | basePath |
+| --- | --- |
+| 仓库已绑定自定义域名（当前状态） | 留空（站点在域名根） |
+| 仓库名叫 `<用户名>.github.io` | 留空 |
+| 普通项目站点、未绑域名 | `/<仓库名>` |
+
+> 🔴 绑定自定义域名后，站点会从 `/<仓库名>/` 子路径**搬到域名根路径**。
+> 如果 `basePath` 没跟着留空，HTML 里的 `/pgl-tools/_next/...` 会全部 404 → **页面白屏**。
+> 详见 [`PROJECT.md`](./PROJECT.md) 的 §5.2.1。
 
 ---
 
@@ -111,8 +123,11 @@ git push
 如果不用 Actions，本地构建时需要自己指定 `basePath`：
 
 ```powershell
-# Windows PowerShell
+# Windows PowerShell —— 普通项目站点
 $env:NEXT_PUBLIC_BASE_PATH="/<仓库名>"; npm run build
+
+# 已绑定自定义域名（站点在域名根）或本地预览 out/ 时：留空
+$env:NEXT_PUBLIC_BASE_PATH=""; npm run build
 ```
 
 ```bash
@@ -132,7 +147,7 @@ NEXT_PUBLIC_BASE_PATH="/<仓库名>" npm run build
 | --- | --- | --- |
 | 命令 | `npm run dev` | `.\deploy.ps1 "说明"` |
 | 生效速度 | 保存文件后**秒级**热更新 | 提交推送后**约 1 分钟** |
-| 谁能看到 | 只有你自己（`localhost:9002`） | 所有人（`gelunpan.github.io/pgl-tools`） |
+| 谁能看到 | 只有你自己（`localhost:9002`） | 所有人（`pan.gelun.eu.cc`） |
 | 是否自动 | 是，不用做别的 | 否，**每次都要推一次** |
 
 > 🔴 **改代码不会让线上页面实时变化。** 线上是一堆已经构建好的静态文件，
