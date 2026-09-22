@@ -1,0 +1,2 @@
+# GitHub Pages 默认使用 Jekyll 处理站点，会忽略下划线开头的目录（如 _next）。
+# 放置该文件可关闭 Jekyll，保证 Next.js 静态产物正常加载。

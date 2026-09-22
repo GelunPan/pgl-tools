@@ -1,0 +1,73 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      # 如果你的默认分支叫 master，把上面一行换成 - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # 项目站点（<user>.github.io/<repo>）需要 basePath=<repo>；
+      # 用户主页站点（仓库名即 <user>.github.io）则留空。
+      - name: Resolve basePath
+        id: basepath
+        run: |
+          REPO="${{ github.event.repository.name }}"
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          if [ "$REPO" = "${OWNER_LOWER}.github.io" ]; then
+            echo "value=" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=/$REPO" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build static site
+        run: npm run build
+        env:
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.basepath.outputs.value }}
+
+      - name: Disable Jekyll
+        run: touch out/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
