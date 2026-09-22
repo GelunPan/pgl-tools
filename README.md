@@ -64,29 +64,46 @@ npx serve out
 
 ## 部署到 GitHub Pages
 
-### 1. 推送到 GitHub
+### 线上地址（已部署 ✅）
 
-```bash
-git init
-git add .
-git commit -m "feat: 精简为登录注册静态页面"
-git branch -M main
-git remote add origin https://github.com/<你的用户名>/<仓库名>.git
-git push -u origin main
+| 项 | 值 |
+| --- | --- |
+| 仓库 | https://github.com/GelunPan/pgl-tools |
+| 站点 | **https://gelunpan.github.io/pgl-tools/** |
+| 部署流水线 | https://github.com/GelunPan/pgl-tools/actions |
+
+推送 `main` 分支后，`.github/workflows/deploy.yml` 会自动构建并发布，无需任何手动操作。
+工作流会自动判断仓库类型并注入正确的 `basePath`（本项目为 `/pgl-tools`）。
+
+---
+
+## 日常更新（改完怎么发上去）
+
+**一条命令搞定**：改完代码后，在项目根目录执行
+
+```powershell
+.\deploy.ps1 "说明这次改了什么"
 ```
 
-### 2. 开启 Pages
+它会自动完成 `git add` → `git commit` → `git push`，然后 GitHub Actions 会自动重新构建发布，
+大约 1 分钟后线上就是新版本。
 
-仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。
+> 如果提示脚本被禁止运行，用这条：
+> ```powershell
+> powershell -ExecutionPolicy Bypass -File .\deploy.ps1 "说明"
+> ```
 
-推送后 `.github/workflows/deploy.yml` 会自动构建并发布，网址为：
+不想用脚本的话，手动三步也一样：
 
-- 项目站点：`https://<用户名>.github.io/<仓库名>/`
-- 用户主页站点（仓库名为 `<用户名>.github.io`）：`https://<用户名>.github.io/`
+```powershell
+git add -A
+git commit -m "说明这次改了什么"
+git push
+```
 
-工作流会自动判断仓库类型并注入正确的 `basePath`，**无需手动改配置**。
+**只改文案的话**，直接编辑 `src/app/` 下的页面文件，然后跑一次 `.\deploy.ps1` 即可。
 
-### 3. 手动构建（可选）
+### 手动构建（可选）
 
 如果不用 Actions，本地构建时需要自己指定 `basePath`：
 
@@ -109,6 +126,7 @@ NEXT_PUBLIC_BASE_PATH="/<仓库名>" npm run build
 ```
 .
 ├── .github/workflows/deploy.yml   # GitHub Pages 自动部署
+├── deploy.ps1                     # 一键发布脚本
 ├── public/.nojekyll               # 关闭 GitHub Pages 的 Jekyll 处理
 ├── src/
 │   ├── app/
