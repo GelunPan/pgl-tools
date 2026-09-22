@@ -29,16 +29,31 @@ jobs:
           node-version: 20
           cache: npm
 
-      # 项目站点（<user>.github.io/<repo>）需要 basePath=<repo>；
-      # 用户主页站点（仓库名即 <user>.github.io）则留空。
+      # 决定构建时的路径前缀（basePath）：
+      #   ① 仓库已绑定自定义域名 → GitHub Pages 会把站点内容直接挂在【域名根路径】下
+      #      （不再是 <user>.github.io/<repo>/ 子路径），因此 basePath 必须留空，
+      #      否则 HTML 里写死的 /<repo>/_next/... 资源在域名根下会全部 404（页面白屏）。
+      #   ② 仓库名就是 <owner>.github.io（用户主页站点）→ basePath 留空。
+      #   ③ 其余普通项目站点 → basePath = /<repo>。
       - name: Resolve basePath
         id: basepath
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           REPO="${{ github.event.repository.name }}"
           OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          if [ "$REPO" = "${OWNER_LOWER}.github.io" ]; then
+
+          # 读取仓库真实的自定义域名设置；查询失败时回退为空（走下面的子路径分支）
+          CNAME=$(gh api "repos/${{ github.repository }}/pages" --jq '.cname // ""' 2>/dev/null || echo "")
+
+          if [ -n "$CNAME" ]; then
+            echo "custom domain detected: $CNAME -> site served at DOMAIN ROOT, basePath is empty"
+            echo "value=" >> "$GITHUB_OUTPUT"
+          elif [ "$REPO" = "${OWNER_LOWER}.github.io" ]; then
+            echo "user site -> basePath is empty"
             echo "value=" >> "$GITHUB_OUTPUT"
           else
+            echo "project site -> basePath=/$REPO"
             echo "value=/$REPO" >> "$GITHUB_OUTPUT"
           fi
 

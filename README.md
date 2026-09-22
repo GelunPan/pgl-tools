@@ -4,6 +4,9 @@
 
 一个**纯前端**的登录注册演示站点：注册信息保存在浏览器 `localStorage`，登录成功后跳转到欢迎页。不依赖任何后端服务、数据库或第三方 API，构建产物是纯静态文件，可直接部署到 **GitHub Pages**。
 
+> 📄 **接手本项目请先读 [`PROJECT.md`](./PROJECT.md)** —— 那是一份自包含的完整技术说明书，
+> 覆盖架构原理、数据模型、构建部署机制、硬约束清单与改动手册。README 只保留日常操作部分。
+
 ---
 
 ## 功能范围
@@ -142,7 +145,7 @@ NEXT_PUBLIC_BASE_PATH="/<仓库名>" npm run build
 | 浏览器标签标题 / PWA 名称 | `src/app/layout.tsx` | `metadata.title` |
 | 登录页标题「欢迎回来！」 | `src/app/(auth)/login/page.tsx` | 第 181 行 |
 | 登录页副标题 | 同上 | 第 184 行 |
-| 注册页标题「加入我们吧！」 | `src/app/(auth)/signup/page.tsx` | 第 180 行 |
+| 注册页副标题「加入我们吧！」 | `src/app/(auth)/signup/page.tsx` | 第 180 行（大标题「创建账号」在第 177 行） |
 | 角色选项「新手 / 高手」 | 同上 | 第 206、219 行 |
 | 姓名输入框占位文字 | 同上 | 第 233 行 |
 | 底部小字「天天开心」 | 登录页 / 注册页 | 154 行 / 150 行 |
@@ -171,6 +174,8 @@ npm run build            # 2. 可选：确认能正常构建
 
 ```
 .
+├── PROJECT.md                     # 📄 完整技术说明书（给 AI / 新接手的人看）
+├── README.md                      # 本文件：日常操作说明
 ├── .github/workflows/deploy.yml   # GitHub Pages 自动部署
 ├── deploy.ps1                     # 一键发布脚本
 ├── public/.nojekyll               # 关闭 GitHub Pages 的 Jekyll 处理
