@@ -157,6 +157,11 @@ export function SkillPegboard() {
         if (!n) continue;
         const b = bodies[i];
         n.style.transform = `translate(${b.x - R}px, ${b.y - R}px) rotate(${b.a}deg)`;
+        // 🔴 可见性跟 live 走（2026-09-24 小潘反馈）：没放行的徽章必须**藏住**，
+        //    放行了才淡入 —— 参考站就是「一开始全消失、然后一颗颗出现掉落」，
+        //    而不是「全部先挂在场外、再排队往下跳」。淡入交给 CSS 的
+        //    transition-opacity（0.2s），这里只写一次值，不逐帧写。
+        n.style.opacity = b.live ? "1" : "0";
       }
     };
 
@@ -362,15 +367,20 @@ export function SkillPegboard() {
         ))}
 
         {/* 16 个徽章：白底圆 + 品牌 logo，带随机倾角堆在底部。
-            `animation-fade-in opacity-0` 是参考站照搬过来的：每个徽章先 0.5s 淡入
-            再参与下落。少了它，徽章会「啪」地一起出现，没有陆续登场的层次。 */}
+            🔴 可见性由 paint() 按 live 状态逐个点亮（2026-09-24 改）：
+            老版本是「全部同时 animation-fade-in 淡入、再排队下落」，
+            小潘指出参考站是「一开始全消失、一颗颗出现掉落」。
+            这里的 `opacity-0` 只是首帧兜底（rAF 第一拍之前别闪出来），
+            之后全部由 inline style 接管；`transition-opacity` 负责那 0.2s 淡入。
+            ⚠️ 因此徽章**不再挂** `.animation-fade-in`（reduced-motion 兜底
+            也不用管它们 —— 降级分支 paint() 一次就把全部 opacity 写成 1）。 */}
         {BADGES.map((slug, i) => (
           <div
             key={`${runId}-${slug}`}
             ref={(el) => {
               nodesRef.current[i] = el;
             }}
-            className="animation-fade-in absolute left-0 top-0 flex items-center justify-center rounded-full border bg-surface opacity-0 shadow-sm dark:bg-white dark:grayscale-[20%]"
+            className="absolute left-0 top-0 flex items-center justify-center rounded-full border bg-surface opacity-0 shadow-sm transition-opacity duration-200 dark:bg-white dark:grayscale-[20%]"
             style={INITIAL_STYLE}
           >
             <img

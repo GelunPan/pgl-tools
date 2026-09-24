@@ -438,7 +438,7 @@
 .cat-tail {
   animation: cat-tail 3.6s ease-in-out infinite;
   transform-box: view-box;
-  transform-origin: 148px 162px;
+  transform-origin: 142px 152px; /* 尾巴根（2026-09-24 坐姿版：藏在身体右后方） */
 }
 
 /* 登录页那只：尾巴根在身体右侧、搭在框沿上，viewBox 也不同（200×146） */
@@ -474,7 +474,7 @@
 .cat-tuft {
   animation: cat-tuft 2.8s ease-in-out infinite;
   transform-box: view-box;
-  transform-origin: 100px 58px; /* 呆毛根部（发梢在 y=43，摆动幅度别开太大） */
+  transform-origin: 100px 40px; /* 呆毛根部（发梢在 y=23，摆动幅度别开太大） */
 }
 
 @keyframes cat-tuft {

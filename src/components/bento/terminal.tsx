@@ -2,6 +2,8 @@
 
 import * as React from "react";
 
+import { useRouter } from "next/navigation";
+
 import { TerminalIcon } from "@/components/bento/icons";
 
 /**
@@ -21,16 +23,16 @@ import { TerminalIcon } from "@/components/bento/icons";
  *    淡的会像呼吸灯，只有 `50% { opacity: 0 }` 的硬切才像终端光标。
  *    打字过程中去掉闪烁类（常亮），停手才闪 —— 这是真 typed.js 的行为。
  *
- * ## 二、点一下的时候（2026-09-24 新增）
+ * ## 二、点一下的时候（2026-09-24 升级：执行完跳 /resume）
  *
- * 参考站那张卡是 `<a href="/resume">`，点一下**跳走**；我们这张没有目标页面，
- * 原来挂的是 `href="#"`（点一下只会在地址栏加个 `#`，等于没反应）。
- * 小潘 2026-09-24 反馈「点一下应该有对应的动画」，于是把它做成一台**真的能跑的**小终端：
+ * 参考站那张卡是 `<a href="/resume">`，点一下**跳走**。我们照它的目的地
+ * 做了一个自己的 /resume（整页假终端会话，`src/app/resume/page.tsx`，
+ * 内容按小潘的工具箱发挥）。点卡片的行为：
  *
  * 1. 回车：命令行末尾落下一个 `↵`，光标转成闪烁态（= 命令提交了）
  * 2. 命令行下方**逐行**吐出输出（每行 160ms 错峰，淡入 + 上浮）
  * 3. 一道绿光自上而下扫过屏幕（`.term-sweep`），像终端刷了一屏
- * 4. 停 1.5s，输出收走，打字机循环从下一句继续
+ * 4. 输出吐完再给一小拍 → `router.push("/resume")` —— 不再回 idle
  *
  * 全程只改本地 state，不涉及网络；再点一下会**被忽略**（不打断正在跑的命令）。
  *
@@ -39,8 +41,8 @@ import { TerminalIcon } from "@/components/bento/icons";
  * - 🔴 **输出行的可见性不能依赖动画**。`.term-line-in` 只负责「入场」，
  *   元素本身的 opacity 是 1 —— 所以 `prefers-reduced-motion` 下把动画一掐，
  *   行还在，只是不再淡入（这正是 PROJECT.md §6.4 挂钩板踩过的反例）。
- * - 🔴 **`prefers-reduced-motion` 下也要能「点一下看到结果」**：直接一次全显，
- *   停 1.5s 后收起，不做逐行、不做扫光。
+ * - 🔴 **`prefers-reduced-motion` 下也要能「点一下就过去」**：输出一次全显，
+ *   120ms 后直接跳转，不做逐行、不做扫光。
  */
 
 /** 三句脚本：命令行 + 点了之后吐出来的输出。写死成常量，渲染期不产生任何随机值 */
@@ -65,11 +67,11 @@ const BACK_MS = 70;
 const HOLD_MS = 1600;
 const AFTER_MS = 420;
 
-/** 输出行之间的错峰，以及输出停留多久 */
+/** 输出行之间的错峰，以及输出停留多久（老版「原地循环」用的，现在被跳转替代） */
 const OUT_STEP_MS = 160;
-const RUN_HOLD_MS = 1500;
 
 export function TerminalCard() {
+  const router = useRouter();
   const [text, setText] = React.useState("");
   const [typing, setTyping] = React.useState(true);
   /** 正在执行哪一句（null = 没在执行） */
@@ -149,7 +151,11 @@ export function TerminalCard() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  // ---------------- 点一下：执行当前这句 ----------------
+  // ---------------- 点一下：执行当前这句，然后进简历终端 ----------------
+  // 2026-09-24 小潘：「应该要可点击的，点击后会进入一个新的界面」。
+  // 参考站那张卡是 <a href="/resume">；我们照它的目的地做一个 /resume
+  // （整页假终端会话，见 src/app/resume/page.tsx），点卡片 =
+  // 先把当前命令「跑完」（逐行吐输出 + 扫光），再 router.push 过去。
   const run = React.useCallback(() => {
     if (busyRef.current) return; // 不打断正在跑的命令
     busyRef.current = true;
@@ -174,17 +180,23 @@ export function TerminalCard() {
       });
     }
 
+    // 🔴 跳转要等输出**全部吐完**再给一小拍（别吐到一半就把页面带走），
+    //    然后就走 —— 不再回到 idle（回 idle 是老版「原地循环」的行为）。
+    //    计时器收在 timersRef 里，卸载时统一清掉。
     timersRef.current.push(
       window.setTimeout(
-        () => {
-          setRunIdx(null);
-          setOutCount(0);
-          busyRef.current = false;
-        },
-        RUN_HOLD_MS + (reduced ? 0 : out.length * OUT_STEP_MS),
+        () => router.push("/resume"),
+        reduced ? 120 : 420 + out.length * OUT_STEP_MS,
       ),
     );
-  }, []);
+
+    // 兜底清 busy（正常情况下组件随跳转卸载，走不到这里）
+    timersRef.current.push(
+      window.setTimeout(() => {
+        busyRef.current = false;
+      }, 4000),
+    );
+  }, [router]);
 
   const running = runIdx !== null;
   const out = running ? SCRIPTS[runIdx].out : [];
@@ -193,7 +205,7 @@ export function TerminalCard() {
     <button
       type="button"
       onClick={run}
-      aria-label={running ? "命令执行中" : "运行这条命令"}
+      aria-label={running ? "正在打开简历" : "打开简历终端"}
       data-running={running ? "" : undefined}
       className="group/term relative flex size-full cursor-pointer flex-col items-center justify-center overflow-clip text-lg text-gray-200 outline-offset-4 md:text-2xl"
     >
