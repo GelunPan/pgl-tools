@@ -43,9 +43,9 @@
   | 模块 | 动效 |
   | --- | --- |
   | **黑猫**（第 2 格） | **一只可以撸的黑猫**（本项目自己加的彩蛋，参考站没有）：照小潘给的写实风黑猫参考图做的 —— **暖调炭黑毛 `#302D26` + 黄绿眼 `#C6D74F`**、短圆耳、深色鼻嘴胡须（**没有**项圈/铃铛/腮红/白肚子），背景是参考图那种**奶油米色**。眼睛**跟着鼠标转**，鼠标在页面任何位置都盯得住；点一下 → 眯眼笑 + 冒气泡（文案按次数轮换）；**1.6 秒内连点 7 下** → 爱心/星星/爪印**分两轮齐飞** + 转圈跳 + 吐舌头 + 「喵喵喵！被你发现了 🎉」。尾巴、头顶呆毛、一层暖光一直在动。**彩蛋有 0.5s 保护期**：手快补点不会把它点没 |
-  | 页头胶囊导航 | 白块**滑动**指示器（1000ms 缓动），不是「旧高亮消失、新的出现」 |
+  | 页头胶囊导航 | 白块**滑动**指示器（700ms 缓动）+ **分类切换**：点「工具箱 / 标签 / 项目 / 关于」→ 命中的卡片**滑到最前排**（`order` 重排 + FLIP 补间，照参考站逐字节复刻），其余卡片模糊弱化；点「全部」恢复 |
   | SKILLS 挂钩板 | **真的 2D 刚体模拟**：16 个技术徽章从卡片上方逐个掉落、被 13 个挂钩弹开、堆在底部（可点左上角按钮重来） |
-  | 终端 | 打字机循环（`vim` → `cat resume` → `ls tools`），停手时光标硬切闪烁 |
+  | 终端 | 打字机循环（`vim` → `cat resume` → `ls tools`），停手时光标硬切闪烁；**点一下真的执行** —— 回车 → 逐行吐输出 + 绿光扫屏，再停 1.5s 收走 |
   | 问候气泡 | 「对方正在输入…」三个跳动的点，3s 后接力换成「你好，我是小潘」 |
   | 字体矩阵 | 悬停整卡 → 所有字形一起转 360° |
   | Pinned 便签 | 悬停 → 纸面 + 两层投影一起放大 1.03 倍，像翘起一角 |
@@ -247,11 +247,11 @@ NEXT_PUBLIC_BASE_PATH="/<仓库名>" npm run build
 | 配色 / 主题变量 | `src/app/globals.css` | shadcn 那套是 HSL；Bento 那套是 RGB，两套互不干涉 |
 | 页面跳转逻辑 | 各页的 `router.push(...)` | — |
 | **工具箱主页的 16 个模块** | `src/app/bento/page.tsx` | 文件顶部是**所有内容常量**（`PINNED` / `GLYPHS` / `TAGS` / `ENTRIES` / `NOTE_TILT`）—— 改内容只动这里。跨度见 PROJECT.md 4.7.3 |
-| 页头 logo 与导航项 | `src/components/bento/site-header.tsx` | `productName` / `productSuffix` / `NAV_ITEMS`。⚠️ 页头高度 `sm:h-36` 不能改（改了整块网格位移） |
-| 卡片样式 / 圆角 / 细边 | `src/components/bento/bento-card.tsx` | 细边那四件套一个都不能删，详见 PROJECT.md 4.7.2 |
+| 页头 logo 与导航项 | `src/components/bento/site-header.tsx` + `src/components/bento/tabs.ts` | `productName` / `productSuffix`；分类定义在 `tabs.ts` 的 `BENTO_TABS`（含「全部」）。⚠️ 页头高度 `sm:h-36` 不能改（改了整块网格位移）；分类切换的 FLIP 在 `src/hooks/use-flip.ts` |
+| 卡片样式 / 圆角 / 细边 / 分类重排 | `src/components/bento/bento-card.tsx` | 细边那四件套一个都不能删，详见 PROJECT.md 4.7.2。⚠️ **网格顶部 `pt-24 xl:pt-28` 是挥手的天顶，不能改小**（硬约束 54）；新卡必须挂 `dataType`（硬约束 55） |
 | 日月切换动效 | `src/components/bento/theme-toggle.tsx` | 详见 PROJECT.md 4.7.5。⚠️ 里面的 `<button>` 不能加 `relative` |
 | 挂钩板物理参数 / 徽章列表 | `src/components/bento/pegboard.tsx` | `BADGES` / `PEGS` / `GRAVITY` / `DROP_INTERVAL`。加徽章要同时往 `public/brands/` 放 logo |
-| 终端话术 | `src/components/bento/terminal.tsx` | `LINES` |
+| 终端话术 / 点击输出 | `src/components/bento/terminal.tsx` | `SCRIPTS`（每句 `cmd` + 点击后逐行吐出的 `out`）、`TYPE_MS` / `OUT_STEP_MS` / `RUN_HOLD_MS` |
 | **两只猫**（毛色 / 连点次数 / 瞳孔幅度 / 彩蛋文案） | `src/components/bento/cat.tsx`（**趴卧**）、`src/components/ui/login-cat.tsx`（**坐姿**）、`src/hooks/use-pet.ts`（共用逻辑） | 连点次数 / 判定窗口 / **彩蛋保护期**是传给 `usePetSequence()` 的参数（`eggCount` / `windowMs` / `eggCooldownMs`）；文案在两个文件顶部的 `HAPPY_TEXTS` 与 `eggText`；毛色（暖调炭黑 `#302D26` + 黄绿眼 `#C6D74F`）都写在各自的 SVG 里。尾巴摆幅 / 呼吸 / 呆毛 / 暖光在 `globals.css` 的 `@keyframes cat-tail` / `cat-breathe` / `cat-tuft` / `cat-glow`。⚠️ `cat-party` 的时长必须与 `partyMs` 对齐（见 PROJECT.md 硬约束第 25 条） |
 | 登录页那只猫的位置 / 大小 / 暗示文案 | `src/components/ui/login-cat.tsx` + `src/app/(auth)/login/page.tsx` | 猫是 `left-[8%] top-[-70px] h-[76px] w-[104px]`（**只压框子 6px**，不能随便挪 —— 输入框上方只剩 ~56px，改之前先跑 `measure-login2.js`），暗示是登录页里那个 `.cat-hint` 的 `<span>` |
 | 沙丘起伏速度 / 颜色 | `src/components/bento/wave-canvas.tsx` | `t += 0.006` 是速度；颜色读的是 class 里的 `fill-ink-1 dark:fill-surface-1` |
@@ -305,17 +305,18 @@ npm run build            # 2. 可选：确认能正常构建
 │   ├── components/
 │   │   ├── ui/                    # 仅保留登录注册页用到的组件（含 color-veil 过渡幕布、login-cat 坐在邮箱框沿上的黑猫）
 │   │   ├── bento/
-│   │   │   ├── bento-card.tsx     # BentoGrid + BentoCard（1px 渐变细边）
-│   │   │   ├── site-header.tsx    # 三栏页头 + 胶囊导航滑动指示器
+│   │   │   ├── bento-card.tsx     # BentoGrid + BentoCard（1px 渐变细边 + 分类重排）
+│   │   │   ├── site-header.tsx    # 三栏页头 + 胶囊导航（滑动指示器 + 分类切换）
+│   │   │   ├── tabs.ts            # 分类定义 / 命中判定 / 筛选 context
 │   │   │   ├── dot-grid.tsx       # 点阵背景（仅日间）
 │   │   │   ├── pegboard.tsx       # SKILLS 挂钩板（2D 刚体模拟）
-│   │   │   ├── terminal.tsx       # 终端打字机
+│   │   │   ├── terminal.tsx       # 终端（打字机循环 + 点一下真执行）
 │   │   │   ├── wave-canvas.tsx    # 沙丘 canvas + 反色文字
 │   │   │   ├── theme-toggle.tsx   # 日月主题切换
 │   │   │   ├── cat.tsx            # 第 2 格那只**趴卧**的黑猫（点它 / 连点 7 次有彩蛋）
 │   │   │   └── icons.tsx          # 内联 SVG 图标（tabler 路径）
 │   │   └── theme-provider.tsx
-│   ├── hooks/                     # use-toast / use-bento-theme / use-converge-in / use-pet（两只猫共用的撸猫状态机）
+│   ├── hooks/                     # use-toast / use-bento-theme / use-converge-in / use-pet（撸猫状态机）/ use-flip（分类切换的 FLIP 补间）
 │   ├── lib/                       # utils.ts（cn）/ asset.ts（basePath 资源路径）/ fonts.ts（@font-face）
 │   └── styles/responsive-touch.css
 ├── public/fonts/*.woff2           # 自托管字体（10 个，latin 子集）

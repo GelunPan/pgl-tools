@@ -159,10 +159,11 @@ careercompass-main/
     │   ├── theme-provider.tsx      ← next-themes 封装（默认夜间，见 4.7.4）
     │   ├── bento/
     │   │   ├── bento-card.tsx      ← ★ BentoGrid + BentoCard（1px 渐变细边，见 4.7.2）
-    │   │   ├── site-header.tsx     ← ★ 三栏页头 + 胶囊导航滑动指示器（见 4.7.9）
+    │   │   ├── site-header.tsx     ← ★ 三栏页头 + 胶囊导航（滑动指示器 + **分类重排**，见 4.7.9）
+    │   │   ├── tabs.ts            ← ★ 分类定义 + 命中判定 + 筛选 context（见 4.7.9 末尾）
     │   │   ├── dot-grid.tsx        ← 点阵背景（仅日间，见 4.7.13）
     │   │   ├── pegboard.tsx        ← ★ SKILLS 挂钩板：真·2D 刚体模拟（见 4.7.10）
-    │   │   ├── terminal.tsx        ← ★ 打字机（自己实现的 typed.js 行为，见 4.7.11）
+    │   │   ├── terminal.tsx        ← ★ 假终端（打字机循环 + **点一下真执行**，见 4.7.11）
     │   │   ├── wave-canvas.tsx     ← ★ 沙丘 canvas + mix-blend 反色文字（见 4.7.12）
     │   │   ├── theme-toggle.tsx    ← ★ 日月切换动效（见 4.7.5）
     │   │   ├── cat.tsx             ← ★ 第 2 格那只**趴卧**的黑猫（视线跟随 + 连点彩蛋，见 4.7.16）
@@ -180,7 +181,8 @@ careercompass-main/
     │   ├── use-toast.ts            ← Toast 状态管理（reducer 模式）
     │   ├── use-bento-theme.ts      ← bento 页主题薄封装（见 4.7.4）
     │   ├── use-pet.ts              ← ★ 两只猫**共用**的撸猫状态机（连点/彩蛋/保护期，见 4.7.16）
-    │   └── use-converge-in.ts      ← ★ 汇聚入场的测量与阶段机（见 4.7.8）
+    │   ├── use-converge-in.ts      ← ★ 汇聚入场的测量与阶段机（见 4.7.8）
+    │   └── use-flip.ts             ← ★ 分类切换时 16 张卡的 FLIP 位移补间（见 4.7.9 末尾）
     ├── lib/
     │   ├── utils.ts                ← cn()：clsx + tailwind-merge
     │   ├── asset.ts                ← ★ basePath 资源路径 helper（见 4.7.14）
@@ -582,7 +584,7 @@ xl:auto-rows-[280px] xl:grid-cols-[repeat(4,280px)] xl:gap-8 xl:p-12
 | 2 | `row-span-2` | SKILLS 挂钩板 | 13 个挂钩 + 16 个徽章的重力模拟；右上角折角红丝带；`!p-0`；**13 条** |
 | 3 | `col-span-2 row-span-2` | Pinned | `bg-paper` 方格纸 + 6 张黄便签（2 列 × 3 行，`font-handwriting`）；**需 `flex flex-col`** |
 | 4 | `1×1` | 字体预览 | 5 列 × 6 行字形矩阵 + 中央 T—T 开关，`group-hover:rotate-[360deg]` |
-| 5 | `1×1` | 终端 | 红黄绿灯 + 打字机 + 闪烁光标；`bg-[#282935]`；`overflow-clip`；`hover:scale-105` |
+| 5 | `1×1` | 终端 | 红黄绿灯 + 打字机循环 + 闪烁光标；**点一下真的执行**（↵ → 逐行吐输出 + 绿光扫屏，见 4.7.11）；`bg-[#282935]`；`overflow-clip`；`hover:scale-105` |
 | 6 | `1×1` | 主题切换 | 日月 + 三云三星；**卡片必须 `bare`**；`overflow-hidden`；**见 4.7.5** |
 | 7 | `col-span-4` | Tags | 12 个彩色芯片（主色 20% 底 + 2px 主色边）；`overflow-clip` |
 | 8–12 | `1×1 ×5` | 工具条目 | `grid-rows-subgrid` 让 5 张卡四行横向对齐；底部按钮 hover 才浮出 |
@@ -873,8 +875,10 @@ CSS 里也有一条 `[data-converge] [data-bento-card] { opacity: 1 !important; 
 
 指示器不跟某个 `<li>` 走，而是 JS 量出当前激活项的 `offsetLeft` / `offsetWidth`
 写成 inline 的 `transform: translateX(Npx); width: Wpx`，靠
-`transition-[opacity,transform] duration-1000 ease-out` 滑过去 ——
-所以切 tab 是「白块慢慢滑」，不是「旧高亮消失、新的出现」。
+`transition-[opacity,transform] duration-700 ease-out` 滑过去 ——
+所以切 tab 是「白块滑过去」，不是「旧高亮消失、新的出现」。
+（参考站原值 1000ms；2026-09-24 改成 **700ms** 跟 FLIP 补间同拍，
+整段切换才是一段动作 —— 小潘反馈过「切换非常缓慢」。）
 
 > 🔴 **首屏（SSR）量不到宽度，此时指示器必须是 `opacity-0`**（用 `pill.ready`
 > 门控）。否则会在左上角先闪一小块白色，再滑到正确位置。
@@ -885,6 +889,53 @@ CSS 里也有一条 `[data-converge] [data-bento-card] { opacity: 1 !important; 
 实测（1600px 视口）：各项宽度 `toolbox:74  tags:60  projects:60  about:60`；
 点击「项目」后指示器 x 从 `0` 平滑经过 **50 个中间值**到 `134`，
 `134` 正是该 `<li>` 的 `offsetLeft`、宽 `60` 正是它的 `offsetWidth` ✅
+
+##### ★ 分类切换 = `order` 重排 + FLIP（2026-09-24 新增，小潘点名要复刻的「丝滑」）
+
+小潘的原话：「**点一下就会把对应的挪到第一来，然后动画非常丝滑**……想尽一切办法复刻」。
+我把参考站的 chunk 反编译了，机制**不是位移动画，而是三件套**：
+
+1. **每张卡拿自己的 `data-type` 跟当前 tab 比一比**，命中者 `order: 0`、
+   未命中者 `order: 1` —— CSS grid 的 `grid-flow-row-dense` 会自动把命中卡**排到最前面**。
+   未命中卡同时吃 `blur(3px)` + `opacity: .8` + `pointer-events: none`（弱化但不消失）。
+2. **FLIP 补间**（`hooks/use-flip.ts`，从参考站 chunk 里挖出的原文移植）：
+   `order` 变化会让网格瞬间重排 —— 浏览器**不会**为 grid 位置变化做过渡。
+   FLIP 的做法：重排**前**量一遍每张卡的 `getBoundingClientRect()`（First），
+   重排**后**再量一遍（Last），算出差值后立刻 `transform: translate(dx, dy)` 把卡
+   拉回旧位置（Invert），下一帧再把 transform 过渡到 0（Play，700ms ease）——
+   视觉上就是「卡片自己滑到新位置」。
+3. **指示器 700ms** 与 FLIP 同拍（见上）。
+
+我们的三处不同（`components/bento/tabs.ts` 头部注释里有完整版）：
+
+- **不走路由，走本地 state**。参考站的 tab 是真链接（`/posts` `/tags`…），
+  路由一变 `useParams().tab` 就变了；我们这些「分类」不是独立页面（静态导出也不允许
+  无中生有造路由），而且本地状态**零网络零跳转**，顺手解决了「切换非常缓慢」。
+- **多一个「全部」** tab（参考站的首页 `/` 就是 All，我们照搬，否则筛过回不去）。
+- **状态不同步到 URL**：静态导出预渲染的是「全部」版，从 `?tab=` 读初值会先闪一帧
+  全部再跳到筛选结果，不划算。
+
+实现落点：
+
+| 件 | 文件 |
+|---|---|
+| 分类定义 / 命中判定 / 筛选 context | `components/bento/tabs.ts`（`BENTO_TABS` / `isCardMatched` / `BentoFilterContext`） |
+| FLIP 补间 | `hooks/use-flip.ts`（`useFlip(ref, [active], { duration: 700 })`） |
+| 卡片侧（order / blur / opacity / dataType） | `components/bento/bento-card.tsx` 的 `BentoCard` |
+| 网格侧（把 tab 塞进 context） | `BentoGrid` 的 `filterTab` prop |
+| 导航（受控 + 全部 + 指示器） | `site-header.tsx`，`active`/`onChange` 由 `bento/page.tsx` 持有 |
+
+> 🔴 **16 张卡都要挂 `dataType`**（`bento/page.tsx`，12 条语句覆盖 16 张 ——
+> ⑨~⑬ 是一个 map）。没挂的卡视为「永远命中」（`isCardMatched` 对 `undefined` 返回 true），
+> 所以漏挂不会报错、但那张卡**永远不会被弱化**，筛选观感就破了。
+>
+> 🔴 **`BentoFilterContext.Provider` 放在 `BentoGrid` 内部**（由 `filterTab` prop 驱动），
+> 不是页面里包一层 Provider —— 效果一样，但「筛选属于网格」这件事在结构上是完整的。
+
+实测（`verify-nav-wave-term.js` 2026-09-24）：点「工具箱」→ 命中 7 张 `order=0`、
+未命中 9 张 `blur(3px)+opacity .8`、16 张卡位置全变、指示器中心与目标 `<li>` 中心
+重合（740 = 740）；`verify-flip-midframe.js` 连续采样 19 帧，其中 **16 帧带非零
+transform**（起步 `matrix(1,0,0,1,-624,-624)` → 缓动归位）—— 证明是补间不是瞬移 ✅
 
 #### 4.7.10 ★ SKILLS 挂钩板（这不是 CSS 动画，是真的 2D 刚体模拟）
 
@@ -959,6 +1010,22 @@ CSS 里也有一条 `[data-converge] [data-bento-card] { opacity: 1 !important; 
 > 实测：13 秒里「闪烁帧 19 / 常亮帧 758」两者都出现 ✅
 
 降级：`prefers-reduced-motion` 下直接显示第一句，不逐字打。
+
+##### ★ 点一下 = 真的执行（2026-09-24 新增）
+
+参考站那张卡是 `<a href="/resume">`（点一下跳走），我们原来挂 `href="#"` 等于没反应。
+小潘反馈「点一下也会有对应的动画」后改成了**一台真能跑的小终端**
+（细节都写在 `terminal.tsx` 头部注释里）：
+
+1. 回车：命令行末尾落下 `↵`，光标转闪烁态（= 提交）
+2. 命令行下方**逐行**吐输出（每行 160ms 错峰淡入上浮，`SCRIPTS[i].out`）
+3. 一道绿光自上而下扫过（`.term-sweep`）
+4. 停 1.5s 收走输出，打字机从下一句继续
+
+> 🔴 **输出行的可见性不能依赖动画**（`.term-line-in` 只管入场，元素 opacity 是 1）
+> —— §6.4 挂钩板的反例不能重演。降级下点一下**一次全显**，不做逐行/扫光。
+> 🔴 **执行中再点会被忽略**（`busyRef` 重入保护），不打断正在跑的命令；
+> 打字机循环在执行期间**要继续挂拍**，否则跑完后循环就断了。
 
 #### 4.7.12 沙丘 canvas + `mix-blend-difference` 反色文字
 
@@ -1092,6 +1159,8 @@ export function asset(path: string) {
 | `verify-cat.js` | **两只猫**共 28 项：视线跟随 / 点击 / 连点彩蛋 / **彩蛋保护期** / **照参考图的配色（暖调炭黑 `#302D26` + 黄绿 `#C6D74F`）、「耳高比 ≤ 0.36」、奶油米底** / 登录页压框几何与「点框仍能聚焦」/ 连点 5 下跳过登录进 `/bento`，见 4.7.16 |
 | `shot-cat.js` | 两只猫的 9 张 3x 特写（趴卧三态 + 亮色 + 登录页三态 + **登录页暗色**）+ reduced-motion 降级，见 4.7.16。**🔴 断言全绿也要看这组图** —— 「柔光把炭黑猫冲成灰猫」那个 bug 只有肉眼看得出来 |
 | `measure-login2.js` | 量 `/login` 表单区的纵向排布（`h1` / 说明 / 标签行 / 输入框的 top-bottom），用来定**登录页那只猫最多能做多高**（实测输入框上方只剩 ~56px → 猫 `h-[76px]`） |
+| `verify-nav-wave-term.js` | **三项改动共 13 项**（2026-09-24）：A 挥手在 1600/900 视口**多帧采样不越滚动容器顶**（A1~A3）/ B 点分类 tab → `order` 重排 + blur 弱化 + 位置变化 + 指示器对准 + 「全部」可恢复（B1~B6）/ C 终端点击 → `data-running` + 执行完恢复（C1~C3），见 4.7.9 末尾与 4.7.11 |
+| `verify-flip-midframe.js` | 连续采样 FLIP 中间帧，断言卡片带**非零 transform 补间**（不是瞬移），见 4.7.9 末尾 |
 
 ---
 
@@ -1697,6 +1766,8 @@ curl -sI https://gelunpan.github.io/pgl-tools/ | head -2
 | 51 | 🔴 **两只猫的猫零件必须同时归到 reduced-motion 的 `.cat-*` 名单里** | `globals.css` 末尾那份 `animation: none !important` 列表按**类名**点名，不按选择器权重。新加一个会动的猫零件（尾巴/呆毛/暖光/气泡/特效…）却忘了加进去，`prefers-reduced-motion` 下它还会动（更糟的情况是像挂钩板那样反向隐身）。见 4.7.16 第 3 条 |
 | 52 | **登录页那只猫的位置是「几何约束」，不是随便摆的** | `left-[8%]` 是为了给标签行右端的暗示文案让位（两者 x 区间不能重叠）；`top-[-70px] h-[76px]` 决定它**只压住输入框顶沿 6px**。动这几个值之前先跑 `verify-cat.js` 的 B1/B2 —— 它会真的去点输入框正中，断言焦点落在 `#email` 上。**竖直空间只剩 ~56px**，想改大先跑 `measure-login2.js` 量一遍。见 4.7.16 |
 | 53 | 🔴 **深色毛的猫「看得见」靠四处兜着，一处都不能回退** | ① 眯眼笑的 `^ ^` 笔画**必须是亮色**（深色画在黑脸上等于没画，一点击表情就消失）；② 第 2 格那张卡的底色**必须是奶油米色、且刻意不留 `dark:` 分支**（`bg-gradient-to-b from-[#F8F4EB] to-[#E9E1D2]`；曾经是一条渐隐到透明的蓝渐变，黑猫下半身会糊进近黑底）；③ 登录页那只**必须带 `.cat-halo`** 柔光底（登录页暗色底 ≈ `hsl(20 14.3% 4.1%)`）；④ 🔴 **`.cat-svg` 必须有 `position: relative; z-index: 1`** —— 否则绝对定位的柔光层在 paint order 上会盖住静态 `<svg>`，**炭黑猫被冲成灰猫**（2026-09-24 踩过，断言全绿、只有截图看得出）。改毛色 / 底色时四处一起过一遍，并跑 `verify-cat.js` 的 A8 / B5 —— 它会真的读 `fill` 和量耳高比。见 4.7.16 |
+| 54 | 🔴 **网格顶部 padding（`pt-24 xl:pt-28`）是挥手的天顶，不能改小** | ① 号格的 👋 带 `-mt-16`（拉到卡外 ~64px）+ 晃动再上冲 ~52px，而滚动容器（`overflow-y-auto`）的上沿就是裁剪线 —— 网格顶部 padding 是手唯一的活动空间。实测 `pt-12 xl:pt-20` 在 900px 视口越界 35.6px、1600px 越界 20.5px（小潘反馈「晃到最高点会撞到边框隐藏一部分」），加大后才全断点为正。改这个值前先跑 `verify-nav-wave-term.js` 的 A1~A3（多帧采样，不是量静止位置）。见 `bento-card.tsx` 的 BentoGrid 注释 |
+| 55 | **16 张卡都要挂 `dataType`，新卡也不例外** | 分类切换靠每张卡的 `dataType` 跟当前 tab 比对（`tabs.ts` 的 `isCardMatched`）。漏挂**不会报错** —— 未挂的卡被视为「永远命中」，永远 `order: 0`、永不弱化，筛选观感直接破掉且很难发现。新卡加进网格时必须同时想清楚它属于 `toolbox` / `tags` / `projects` / `about` 哪一类。见 4.7.9 末尾 |
 
 ---
 

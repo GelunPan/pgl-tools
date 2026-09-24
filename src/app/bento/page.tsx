@@ -19,6 +19,7 @@ import {
 } from "@/components/bento/icons";
 import { SkillPegboard } from "@/components/bento/pegboard";
 import { SiteHeader } from "@/components/bento/site-header";
+import { type BentoTabName } from "@/components/bento/tabs";
 import { TerminalCard } from "@/components/bento/terminal";
 import { ThemeToggle } from "@/components/bento/theme-toggle";
 import { WaveCanvas } from "@/components/bento/wave-canvas";
@@ -242,6 +243,8 @@ export default function BentoPage() {
   const router = useRouter();
   const [name, setName] = React.useState("");
   const [serifOn, setSerifOn] = React.useState(false);
+  /** 顶部导航选中的分类。`all` = 不筛。见 components/bento/tabs.ts */
+  const [tab, setTab] = React.useState<BentoTabName>("all");
 
   // 会话只在客户端读，首帧一律空串 —— 否则 SSR 拿到空、CSR 拿到名字，hydration 会炸
   React.useEffect(() => {
@@ -252,6 +255,22 @@ export default function BentoPage() {
       /* ignore */
     }
   }, []);
+
+  /**
+   * 🔴 入场演出期间不接受切分类。
+   *
+   * 「汇聚入场」是靠 `[data-converge="flying"]` 这条 CSS 动画驱动 16 张卡的
+   * transform 的，而分类重排的 FLIP 用的是同一条 transform —— 两者同时跑必然打架
+   * （卡片会从屏幕外飞一半再被 FLIP 拽回来）。boot 到 settled 只有 ~2.9s，
+   * 期间点导航本来也没意义，直接吞掉最省事。
+   */
+  const handleTabChange = React.useCallback(
+    (next: BentoTabName) => {
+      if (phase !== "settled") return;
+      setTab(next);
+    },
+    [phase],
+  );
 
   const handleLogout = React.useCallback(() => {
     try {
@@ -291,15 +310,21 @@ export default function BentoPage() {
 
       {/* html/body 上有 overflow:hidden（登录页要求的），滚动必须由内层接管 */}
       <div className="relative z-10 flex h-full flex-col">
-        <SiteHeader onLogout={handleLogout} />
+        <SiteHeader active={tab} onChange={handleTabChange} onLogout={handleLogout} />
 
         {/* min-h-0 不能省：flex 子项默认 min-height:auto，不加就撑不出滚动区 */}
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-          <BentoGrid className="min-h-full">
+          {/* filterTab = 当前分类。网格内部会把它塞进 context，
+              16 张卡各自拿它跟自己的 dataType 比一比，决定 order / 模糊 / 透明度。
+              见 tabs.ts 与 bento-card.tsx */}
+          <BentoGrid className="min-h-full" filterTab={tab}>
             {/* ================= ① 自我介绍（prose）2×1 =================
                 参考站这格是 `prose` + `dark:prose-invert`（typography 插件），
                 断点跨度：base 2×2 → md 4×1 → lg 2×1。 */}
-            <BentoCard className="prose z-10 col-span-2 row-span-2 max-w-full bg-gradient-to-br from-white to-amber-50 dark:prose-invert prose-h1:mb-0 dark:from-surface-1 dark:to-white/5 sm:max-lg:prose-p:my-1.5 md:col-span-4 md:row-span-1 md:max-xl:prose-p:my-2 lg:col-span-2 lg:row-span-1">
+            <BentoCard
+              dataType="about"
+              className="prose z-10 col-span-2 row-span-2 max-w-full bg-gradient-to-br from-white to-amber-50 dark:prose-invert prose-h1:mb-0 dark:from-surface-1 dark:to-white/5 sm:max-lg:prose-p:my-1.5 md:col-span-4 md:row-span-1 md:max-xl:prose-p:my-2 lg:col-span-2 lg:row-span-1"
+            >
               <h1 className="relative flex items-start">
                 {/* 「欢迎的巴掌」整体再放大一档（5xl→6xl / 6xl→7xl / 8xl→9xl）。
                     同时把 -mt 从 3rem 提到 4rem 抵消多出来的高度 —— 否则 h1 会把
@@ -349,7 +374,10 @@ export default function BentoPage() {
                 背景是**奶油米色**（照小潘给的黑猫参考图取的色）—— 注意这里**没有**
                 `dark:` 分支：黑猫在深色底上会糊，两套主题都得是这层米色。
                 猫才是主角，所以卡上只留一层会呼吸的暖光（`.cat-glow`）。 */}
-            <BentoCard className="overflow-clip bg-gradient-to-b from-[#F8F4EB] to-[#E9E1D2] p-0">
+            <BentoCard
+              dataType="about"
+              className="overflow-clip bg-gradient-to-b from-[#F8F4EB] to-[#E9E1D2] p-0"
+            >
               <BentoCat />
             </BentoCard>
 
@@ -357,6 +385,7 @@ export default function BentoPage() {
                 跨度：base row-span-4 → sm row-span-2。`!p-0` 必须有，
                 否则 base 的 `p-2.5` 会把挂钩板挤进去一圈（挂板要贴边）。 */}
             <BentoCard
+              dataType="about"
               className="z-20 row-span-4 max-sm:col-span-2 bg-surface !p-0 sm:row-span-2"
               aria-label="技能挂钩板"
             >
@@ -375,7 +404,10 @@ export default function BentoPage() {
                 bg-paper / dark:bg-paper-dark 是 globals.css 里的原版底纹：
                 左侧一条竖向「书脊线」+ 每 32px 一条横向蓝线，看起来就是一张方格纸。
                 字体走 font-handwriting（Handlee）。 */}
-            <BentoCard className="z-10 col-span-2 row-span-5 flex flex-col border-none bg-paper !p-0 font-handwriting shadow-md dark:bg-paper-dark sm:col-span-3 sm:row-span-4 md:row-span-2 xl:col-span-2">
+            <BentoCard
+              dataType="toolbox"
+              className="z-10 col-span-2 row-span-5 flex flex-col border-none bg-paper !p-0 font-handwriting shadow-md dark:bg-paper-dark sm:col-span-3 sm:row-span-4 md:row-span-2 xl:col-span-2"
+            >
               <h2 className="flex items-center gap-2 pl-[10%] pt-4 text-2xl font-bold text-brand xl:pt-6">
                 <PinIcon className="size-6" />
                 Pinned
@@ -391,7 +423,10 @@ export default function BentoPage() {
                 内部是一个 3×4（lg 起 5×6）的网格，塞着 25 个「Aa / a / A」，
                 其中一格是一个跨 3×2 的 T 开关（左 T 用无衬线、右 T 用衬线）。
                 悬停整张卡 → 所有字形一起 `rotate-360`（700ms），像字被甩了一圈。 */}
-            <BentoCard className="group grid grid-cols-3 grid-rows-4 items-center justify-items-center bg-surface-1 text-lg font-semibold text-ink-1 lg:grid-cols-5 lg:grid-rows-6">
+            <BentoCard
+              dataType="about"
+              className="group grid grid-cols-3 grid-rows-4 items-center justify-items-center bg-surface-1 text-lg font-semibold text-ink-1 lg:grid-cols-5 lg:grid-rows-6"
+            >
               {GLYPHS.map((g, i) =>
                 g === "SWITCH" ? (
                   <div
@@ -434,7 +469,10 @@ export default function BentoPage() {
             {/* ================= ⑥ 终端 1×1 =================
                 底色 #282935 是参考站写死的（不是主题色），暗色下换成 surface-1。
                 悬停整卡 hover:scale-105。 */}
-            <BentoCard className="overflow-clip bg-[#282935] !p-0 outline-offset-4 transition-transform hover:scale-105 dark:bg-surface-1">
+            <BentoCard
+              dataType="about"
+              className="overflow-clip bg-[#282935] !p-0 outline-offset-4 transition-transform duration-700 hover:scale-105 active:scale-[0.98] dark:bg-surface-1"
+            >
               <span className="absolute inset-x-0 top-0 flex gap-2 bg-slate-700 px-6 py-3 dark:bg-surface-2">
                 <i className="block size-3 rounded-full bg-red-500" />
                 <i className="block size-3 rounded-full bg-yellow-400" />
@@ -448,6 +486,7 @@ export default function BentoPage() {
                 从太阳右上角咬出来的，所以卡片底色必须和页面底色一致。 */}
             <BentoCard
               bare
+              dataType="about"
               className="group overflow-hidden bg-surface transition-transform duration-700 hover:scale-105 dark:bg-transparent"
             >
               <ThemeToggle theme={theme} onToggle={toggle} />
@@ -456,7 +495,10 @@ export default function BentoPage() {
             {/* ================= ⑧ 标签 4×1 =================
                 芯片是「主色 20% 透明做底 + 2px 主色描边」（`#RRGGBB33` 这种写法），
                 颜色直接写在 inline style 上 —— 每个标签一个色，不可能全塞进 Tailwind。 */}
-            <BentoCard className="col-span-2 flex flex-col overflow-clip bg-gradient-to-l from-amber-50 to-surface dark:from-surface-1 max-lg:row-span-2 sm:col-span-3 md:col-span-2 lg:col-span-4">
+            <BentoCard
+              dataType="tags"
+              className="col-span-2 flex flex-col overflow-clip bg-gradient-to-l from-amber-50 to-surface dark:from-surface-1 max-lg:row-span-2 sm:col-span-3 md:col-span-2 lg:col-span-4"
+            >
               <h2 className="mb-4 flex items-center gap-4 text-2xl text-brand">
                 <TagsIcon />
                 Tags
@@ -485,6 +527,7 @@ export default function BentoPage() {
             {ENTRIES.map((entry) => (
               <BentoCard
                 key={entry.title}
+                dataType="toolbox"
                 className="group grid grid-rows-[1fr_min-content_2fr] bg-gradient-to-b from-surface-1 to-white dark:bg-[linear-gradient(rgba(255,255,255,0.05)_0%,rgba(255,255,255,0)_100%)] max-lg:p-2 max-md:row-span-2 max-sm:col-span-2 max-sm:row-span-1 xl:grid-rows-[1fr_min-content_2fr_auto]"
               >
                 <div className="row-span-4 grid grid-rows-subgrid gap-1 xl:gap-2">
@@ -526,12 +569,18 @@ export default function BentoPage() {
             {/* ================= ⑭ 波浪 canvas 1×1 =================
                 canvas 画一道缓慢起伏的沙丘，文字用 mix-blend-difference 反色 ——
                 沙丘扫过时字会被吃掉一半再吐出来。见 wave-canvas.tsx。 */}
-            <BentoCard className="flex items-stretch justify-stretch overflow-clip bg-surface outline-offset-4 max-md:col-span-2">
+            <BentoCard
+              dataType="toolbox"
+              className="flex items-stretch justify-stretch overflow-clip bg-surface outline-offset-4 max-md:col-span-2"
+            >
               <WaveCanvas />
             </BentoCard>
 
             {/* ================= ⑮ GitHub 1×1 ================= */}
-            <BentoCard className="group flex items-center justify-center bg-gradient-to-b from-surface-1 to-white dark:to-white/5">
+            <BentoCard
+              dataType="projects"
+              className="group flex items-center justify-center bg-gradient-to-b from-surface-1 to-white dark:to-white/5"
+            >
               <GithubIcon className="size-24 xl:size-32" />
               <a
                 href="https://github.com/gelunpan"
@@ -546,7 +595,10 @@ export default function BentoPage() {
 
             {/* ================= ⑯ 在线站点 1×1 =================
                 底色是参考站的「掘金卡」配色（浅蓝→白，暗色降饱和），这格换成我们自己的站。 */}
-            <BentoCard className="group flex items-center justify-center bg-gradient-to-b from-blue-200 to-white text-black dark:from-blue-300/80 dark:to-white/70">
+            <BentoCard
+              dataType="projects"
+              className="group flex items-center justify-center bg-gradient-to-b from-blue-200 to-white text-black dark:from-blue-300/80 dark:to-white/70"
+            >
               <GlobeIcon className="size-24 xl:size-32" />
               <a
                 href="https://gelun.eu.cc/"

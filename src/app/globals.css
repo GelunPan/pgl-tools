@@ -369,6 +369,39 @@
 }
 
 /* ------------------------------------------------------------------
+   终端卡：点一下「执行命令」的两个动效（2026-09-24）
+
+   🔴 可见性红线：`.term-line-in` 只做**入场**，元素本身 opacity 就是 1。
+      所以 reduced-motion 把动画掐掉之后行还在（只是不再淡入）——
+      反过来做（靠动画才可见）就会重演挂钩板那次「一掐永隐身」。
+   ------------------------------------------------------------------ */
+@keyframes term-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.term-line-in {
+  animation: term-line-in 240ms ease-out both;
+}
+
+@keyframes term-sweep {
+  from {
+    transform: translateY(-110%);
+  }
+  to {
+    transform: translateY(320%);
+  }
+}
+.term-sweep {
+  animation: term-sweep 900ms ease-out both;
+}
+
+/* ------------------------------------------------------------------
    BentoCat —— 第 2 格（个人展示格）里的那只猫（彩蛋互动）
 
    👁 视线跟随：瞳孔位移由 --gaze-x / --gaze-y 驱动，值由 cat.tsx 在
@@ -804,7 +837,11 @@
   .animation-hello,
   .animation-fade-in,
   .animation-fade-out,
-  .typed-cursor--blink {
+  .typed-cursor--blink,
+  /* 终端卡点一下的扫光与输出行入场。注意这两条**只是入场**：
+     掐掉之后输出行照常可见（terminal.tsx 里元素本身 opacity: 1）。 */
+  .term-sweep,
+  .term-line-in {
     animation: none !important;
   }
 
