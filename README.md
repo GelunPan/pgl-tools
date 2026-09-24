@@ -14,9 +14,10 @@
 | 页面 | 路径 | 说明 |
 | --- | --- | --- |
 | 首页 | `/` | 自动跳转到登录页 |
-| 登录 | `/login` | 邮箱 + 密码登录，读取 `localStorage` 中已注册用户；成功后写入会话并跳转欢迎页 |
+| 登录 | `/login` | 邮箱 + 密码登录，读取 `localStorage` 中已注册用户；成功后走过渡动效进入工具箱主页 |
 | 注册 | `/signup` | 选择身份（新手 / 高手）、姓名、邮箱、密码，写入 `localStorage`；成功后跳转登录页 |
-| 欢迎 | `/welcome` | 展示当前登录用户信息，支持退出登录 |
+| **工具箱主页** | **`/bento`** | **登录后的落点**。近黑底 Bento 网格（4 列 × 6 行 = 16 个模块），**排布与参考站 `zhangyu.dev` 逐格相同**；进页面时所有模块**从屏幕四周汇聚飞入**；点日月模块，整站一起翻成白色（1000ms 过渡） |
+| 欢迎（旧） | `/welcome` | 早期的测试页，展示会话信息。已不再是登录落点，保留着 |
 | 404 | 任意未知路径 | GitHub Pages 会自动使用构建出的 `404.html` |
 
 ### 保留的交互与动画
@@ -25,8 +26,36 @@
 
 - `AnimatedCharacters` —— 左侧四个卡通角色：眼球跟随鼠标、随机眨眼、输入时互相对视、密码可见时「偷看」
 - `InteractiveHoverButton` —— 登录 / 注册按钮的悬停位移 + 主色填充动画
+- `ColorVeil` —— **登录成功过渡（第一段）**：点击登录后，主题蓝从「登录」按钮的位置圆形扩散、
+  撑满整个屏幕；扩散到一半时那层蓝**开始悄悄变暗**，扩散结束后 1s 内变成**纯黑**，
+  全黑之后才切换页面。
+  所以整段过程既看不到页面切换、也感觉不到颜色是什么时候变的 ——
+  只有「一层蓝盖过来，安静地暗下去」。
+  （实现细节与逐帧实测数据见 `PROJECT.md` 的 4.6 节）
+- **汇聚入场**（`/bento`，过渡的第二段）—— 落到工具箱主页时，屏幕先是同色纯黑，
+  然后黑幕淡出，**16 个模块各自从屏幕外、沿自己相对屏幕中心的方向飞回网格位**，
+  按离屏幕中心的距离错峰，近的先落位、外围最后合拢。全程约 1.6s。
+  （见 `PROJECT.md` 的 4.7.8 节）
+- **Bento 设计系统 + 全套模块动效**（`/bento`）—— 版式、跨度、设计 token、卡片外壳、
+  六个 `@keyframes`、动画时序、字体、页头结构**全部对照 `zhangyu.dev` 的真实 DOM 复刻**
+  （方法与扒取产物见 `PROJECT.md` 的 4.7.15）。其中比较有意思的几个：
+
+  | 模块 | 动效 |
+  | --- | --- |
+  | 页头胶囊导航 | 白块**滑动**指示器（1000ms 缓动），不是「旧高亮消失、新的出现」 |
+  | SKILLS 挂钩板 | **真的 2D 刚体模拟**：16 个技术徽章从卡片上方逐个掉落、被 13 个挂钩弹开、堆在底部（可点左上角按钮重来） |
+  | 终端 | 打字机循环（`vim` → `cat resume` → `ls tools`），停手时光标硬切闪烁 |
+  | 问候气泡 | 「对方正在输入…」三个跳动的点，3s 后接力换成「你好，我是小潘」 |
+  | 字体矩阵 | 悬停整卡 → 所有字形一起转 360° |
+  | Pinned 便签 | 悬停 → 纸面 + 两层投影一起放大 1.03 倍，像翘起一角 |
+  | Tags / 条目卡 / GitHub 卡 | 悬停浮出按钮、整卡微放大 |
+  | Explore More | 沙丘 canvas 缓慢起伏，文字用反色混合，沙丘扫过时字被「吃掉一半再吐出来」 |
+  | 点阵背景 | 仅日间显示，四周用遮罩晕开 |
+
+  另：`prefers-reduced-motion` 下有**整条降级路径**（不做飞入、不做物理模拟、动画全静态），
+  不是简单地把动画关掉就完事 —— 细节见 `PROJECT.md` 4.7.8 末尾。
 - 密码显示 / 隐藏切换、表单实时校验（Zod + React Hook Form）
-- 加载态（"正在登录…"）、Toast 提示、深浅色主题跟随系统
+- 加载态（"正在登录…"）、Toast 提示、**全站默认夜间主题**（可切换）
 - 响应式布局：小屏隐藏角色插画，仅保留表单
 
 ### 数据存储
@@ -53,9 +82,29 @@ npm run dev      # http://localhost:9002
 
 | 命令 | 说明 |
 | --- | --- |
+| `npm run dev:fresh` | **dev 页面报错 / 白屏时先试这个**：清掉 `.next` 缓存再启动 |
+| `npm run clean` | 只清 `.next` 构建缓存（可随时再生成，不丢代码） |
 | `npm run build` | 生成静态站点到 `out/` |
 | `npm run lint` | ESLint 检查 |
 | `npm run typecheck` | TypeScript 类型检查 |
+
+> 🔴 **同一个项目同时只能开一个 dev server**。两个一起开会把共用的 `.next` 写坏，
+> 页面变成 `Cannot find module './chunks/ssr/[turbopack]_runtime.js'` —— 就是缓存被覆盖了，
+> 不是什么代码问题，`npm run dev:fresh` 即可恢复（详见 `PROJECT.md` 8.6）。
+> 尤其别用 `npx next dev -p <别的端口>` 去配原来的 `--turbopack`，两套产物格式不同，必坏。
+
+### 页面黑屏 / 空白时怎么排查
+
+按症状对号入座：
+
+| 症状 | 原因 | 怎么办 |
+| --- | --- | --- |
+| 满屏红字 `Cannot find module ...` | 两个 dev server 抢坏了 `.next` | `npm run dev:fresh`（见上面） |
+| **一直黑屏、什么都不出**，但 `curl` 能秒回 HTML | 外部资源**渲染阻塞**（曾经是 Google Fonts） | 2026-09-24 已把字体改成自托管，正常不会再发生。若又出现，按 F12 → Network 找卡在 pending 的**外部样式表**（详见 `PROJECT.md` 8.7） |
+| `/bento` 纯黑一片 | 首帧黑幕没退（JS 没跑起来） | 8 秒后会自动脱黑（`PROJECT.md` 8.8）；若 8 秒还没出，看 Console 报什么错 |
+
+> ⚠️ 排查时记住一句话：**服务端返回 200 ≠ 浏览器画得出来**。
+> 判断有没有真的画出来，看 `performance.getEntriesByType("paint")` 有没有记录。
 
 本地预览静态产物：
 
@@ -72,7 +121,7 @@ npx serve out
 | 项 | 值 |
 | --- | --- |
 | 仓库 | https://github.com/GelunPan/pgl-tools |
-| 站点 | **https://pan.gelun.eu.cc/** （自定义域名 + Cloudflare 代理） |
+| 站点 | **https://gelun.eu.cc/** （自定义域名 + Cloudflare 代理） |
 | 旧地址 | https://gelunpan.github.io/pgl-tools/ → 301 自动跳到上面的域名 |
 | 部署流水线 | https://github.com/GelunPan/pgl-tools/actions |
 
@@ -147,7 +196,7 @@ NEXT_PUBLIC_BASE_PATH="/<仓库名>" npm run build
 | --- | --- | --- |
 | 命令 | `npm run dev` | `.\deploy.ps1 "说明"` |
 | 生效速度 | 保存文件后**秒级**热更新 | 提交推送后**约 1 分钟** |
-| 谁能看到 | 只有你自己（`localhost:9002`） | 所有人（`pan.gelun.eu.cc`） |
+| 谁能看到 | 只有你自己（`localhost:9002`） | 所有人（`gelun.eu.cc`） |
 | 是否自动 | 是，不用做别的 | 否，**每次都要推一次** |
 
 > 🔴 **改代码不会让线上页面实时变化。** 线上是一堆已经构建好的静态文件，
@@ -158,22 +207,42 @@ NEXT_PUBLIC_BASE_PATH="/<仓库名>" npm run build
 | 想改什么 | 文件 | 位置 |
 | --- | --- | --- |
 | 浏览器标签标题 / PWA 名称 | `src/app/layout.tsx` | `metadata.title` |
-| 登录页标题「欢迎回来！」 | `src/app/(auth)/login/page.tsx` | 第 181 行 |
-| 登录页副标题 | 同上 | 第 184 行 |
+| 登录页标题「欢迎回来！」 | `src/app/(auth)/login/page.tsx` | 第 204 行 |
+| 登录页副标题 | 同上 | 第 207 行 |
 | 注册页副标题「加入我们吧！」 | `src/app/(auth)/signup/page.tsx` | 第 180 行（大标题「创建账号」在第 177 行） |
 | 角色选项「新手 / 高手」 | 同上 | 第 206、219 行 |
 | 姓名输入框占位文字 | 同上 | 第 233 行 |
-| 底部小字「天天开心」 | 登录页 / 注册页 | 154 行 / 150 行 |
-| 欢迎页文案 | `src/app/welcome/page.tsx` | 第 48 行 |
+| 底部小字「天天开心」 | 登录页 / 注册页 | 172 行 / 150 行 |
+| 欢迎页文案 | `src/app/welcome/page.tsx` | 第 76、83 行 |
+| **登录后落在哪一页** | `src/app/(auth)/login/page.tsx` | 第 309 行 `onComplete={() => router.push("/bento")}` |
+| 工具箱页首帧黑幕 | `src/app/bento/page.tsx` | `bg-black` 那层，**必须与 `VEIL_END_COLOR` 一致** |
+| 汇聚入场的速度 / 错峰 | `src/hooks/use-converge-in.ts` | 顶部常量 `FLY_DURATION` / `FLY_BASE_DELAY` / `STAGGER_STEP` / `TRAVEL_RATIO` / `TRAVEL_MAX_RATIO`。⚠️ `FLY_DURATION` 必须等于 `globals.css` 里 `converge-in` 的 `animation-duration`（900ms） |
+| 登录成功的过渡动效 | `src/components/ui/color-veil.tsx` + `globals.css` 里的 keyframes | 详见 PROJECT.md 4.6 |
+| 幕布颜色 / 时长 | `<ColorVeil color fadeTo fadeStartRatio fadeDuration duration>` 或 `--primary` | 起始色跟随主题色 → 终色纯黑；扩散 760ms，变色从 50% 起算，扩散结束后 1s 内变完 |
 | 报错 / 成功提示文字 | 各页的 `toast({ ... })`、`z.string().min(...)` | — |
-| 左上角标识 `pgl-tools` | 登录页 / 注册页内的 `<span>` | — |
+| 左上角标识 `pgl-tools` | 登录页 / 注册页内的 `<span>`；bento 页在 `site-header.tsx` 的 `productName` / `productSuffix` | — |
 | 404 页面 | `src/app/not-found.tsx` | — |
-| 配色 / 主题变量 | `src/app/globals.css` | — |
+| 配色 / 主题变量 | `src/app/globals.css` | shadcn 那套是 HSL；Bento 那套是 RGB，两套互不干涉 |
 | 页面跳转逻辑 | 各页的 `router.push(...)` | — |
+| **工具箱主页的 16 个模块** | `src/app/bento/page.tsx` | 文件顶部是**所有内容常量**（`PINNED` / `GLYPHS` / `TAGS` / `ENTRIES` / `NOTE_TILT`）—— 改内容只动这里。跨度见 PROJECT.md 4.7.3 |
+| 页头 logo 与导航项 | `src/components/bento/site-header.tsx` | `productName` / `productSuffix` / `NAV_ITEMS`。⚠️ 页头高度 `sm:h-36` 不能改（改了整块网格位移） |
+| 卡片样式 / 圆角 / 细边 | `src/components/bento/bento-card.tsx` | 细边那四件套一个都不能删，详见 PROJECT.md 4.7.2 |
+| 日月切换动效 | `src/components/bento/theme-toggle.tsx` | 详见 PROJECT.md 4.7.5。⚠️ 里面的 `<button>` 不能加 `relative` |
+| 挂钩板物理参数 / 徽章列表 | `src/components/bento/pegboard.tsx` | `BADGES` / `PEGS` / `GRAVITY` / `DROP_INTERVAL`。加徽章要同时往 `public/brands/` 放 logo |
+| 终端话术 | `src/components/bento/terminal.tsx` | `LINES` |
+| 沙丘起伏速度 / 颜色 | `src/components/bento/wave-canvas.tsx` | `t += 0.006` 是速度；颜色读的是 class 里的 `fill-ink-1 dark:fill-surface-1` |
+| 点阵背景 | `src/components/bento/dot-grid.tsx` | 只有日间显示（`dark:hidden`） |
+| 字体 | `public/fonts/` + `src/lib/fonts.ts` | **自托管**，`@font-face` 由 `fonts.ts` 生成后在 `layout.tsx` 用 `<style>` 注入。⚠️ **不要改成 `next/font/google`，也不要加任何外部字体 `<link>`** —— 外部样式表是渲染阻塞的，国内网络下会把首屏挂成黑屏（见 `PROJECT.md` 8.7） |
+| 全站默认明暗 | `src/components/theme-provider.tsx` | 默认夜间；改回跟随系统见 PROJECT.md 4.7.4 |
+| **新增 `public/` 图片 / 资源** | 引用处 | 路径必须过 `asset()`（`src/lib/asset.ts`），否则换了部署路径就 404 |
 
 > ⚠️ 登录页与注册页结构对称，同一处文案两边都有 —— 改一处记得看看另一处，避免两边不一致。
 >
 > ⚠️ **别改 `localStorage` 的 key**（`careercompass_users` / `careercompass_session`），改了老账号就读不到了。
+>
+> ⚠️ **改外观 / 动效之前，先去 `PROJECT.md` 4.7.15 那份扒取产物里对照参考站的原始 class** ——
+> 现在这套版式是逐像素对齐的，凭感觉改很容易破坏对齐关系。**但文案、数据、跳转目标本来就
+> 是自己的**，随便改。
 
 ### 改完的验证顺序
 
@@ -193,25 +262,38 @@ npm run build            # 2. 可选：确认能正常构建
 ├── README.md                      # 本文件：日常操作说明
 ├── .github/workflows/deploy.yml   # GitHub Pages 自动部署
 ├── deploy.ps1                     # 一键发布脚本
-├── public/.nojekyll               # 关闭 GitHub Pages 的 Jekyll 处理
+├── public/
+│   ├── .nojekyll                  # 关闭 GitHub Pages 的 Jekyll 处理
+│   └── brands/*.svg               # 16 个技术 logo（Simple Icons，CC0，本地托管）
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/
 │   │   │   ├── layout.tsx
 │   │   │   ├── login/page.tsx     # 登录页
 │   │   │   └── signup/page.tsx    # 注册页
-│   │   ├── welcome/page.tsx       # 欢迎页
+│   │   ├── bento/page.tsx         # 工具箱主页 = 登录落点（16 格内容常量都在这）
+│   │   ├── welcome/page.tsx       # 欢迎页（旧测试页，已非落点）
 │   │   ├── page.tsx               # 首页 → 跳转 /login
 │   │   ├── not-found.tsx          # 404
-│   │   ├── layout.tsx             # 根布局（主题 + Toast）
-│   │   ├── globals.css            # 设计令牌（shadcn 变量）
+│   │   ├── layout.tsx             # 根布局（主题 + Toast + 三套 Google Fonts）
+│   │   ├── globals.css            # 设计令牌（shadcn HSL + Bento RGB）+ 全部 keyframes
 │   │   └── manifest.ts            # PWA manifest
 │   ├── components/
-│   │   ├── ui/                    # 仅保留登录注册页用到的 9 个组件
+│   │   ├── ui/                    # 仅保留登录注册页用到的 10 个组件（含 color-veil 过渡幕布）
+│   │   ├── bento/
+│   │   │   ├── bento-card.tsx     # BentoGrid + BentoCard（1px 渐变细边）
+│   │   │   ├── site-header.tsx    # 三栏页头 + 胶囊导航滑动指示器
+│   │   │   ├── dot-grid.tsx       # 点阵背景（仅日间）
+│   │   │   ├── pegboard.tsx       # SKILLS 挂钩板（2D 刚体模拟）
+│   │   │   ├── terminal.tsx       # 终端打字机
+│   │   │   ├── wave-canvas.tsx    # 沙丘 canvas + 反色文字
+│   │   │   ├── theme-toggle.tsx   # 日月主题切换
+│   │   │   └── icons.tsx          # 内联 SVG 图标（tabler 路径）
 │   │   └── theme-provider.tsx
-│   ├── hooks/use-toast.ts
-│   ├── lib/utils.ts
+│   ├── hooks/                     # use-toast / use-bento-theme / use-converge-in
+│   ├── lib/                       # utils.ts（cn）/ asset.ts（basePath 资源路径）/ fonts.ts（@font-face）
 │   └── styles/responsive-touch.css
+├── public/fonts/*.woff2           # 自托管字体（10 个，latin 子集）
 ├── next.config.ts                 # output: export 静态导出
 ├── tailwind.config.ts
 └── tsconfig.json

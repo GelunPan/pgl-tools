@@ -85,3 +85,393 @@
     overflow: hidden;
   }
 }
+
+/* ============================================================
+   页面过渡动效：登录成功 → 主题色幕布从按钮扩散铺满
+                →（扩散到一半起，静悄悄转为纯黑）→ 欢迎页在黑色上浮现
+   由 src/components/ui/color-veil.tsx 驱动。
+   --veil-x / --veil-y：扩散圆心（视口坐标，px）
+   --veil-r：           扩散终点半径（px，由 JS 算出「到最远角」的距离）
+   ============================================================ */
+
+@keyframes veil-spread {
+  from {
+    clip-path: circle(0px at var(--veil-x) var(--veil-y));
+  }
+  to {
+    clip-path: circle(var(--veil-r) at var(--veil-x) var(--veil-y));
+  }
+}
+
+/* 转黑：一层纯黑叠在幕布底色上，从透明淡入到不透明。
+   用 opacity 而不是 background-color —— 前者走合成层不重绘，慢速长过渡也不掉帧，
+   视觉上就是「底色在不知不觉中暗下去」。 */
+@keyframes veil-darken {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 幕布铺满后，欢迎页内容逐层浮现（配合 animation-delay 做错峰） */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise-in {
+  animation: rise-in 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise-in {
+    animation: none;
+  }
+  /* 幕布的两段动画都由 JS 的 animationend 驱动跳转，不能直接 animation: none
+     （否则事件不触发，只能等兜底定时器）。改为压到 1ms：视觉上瞬间完成，跳转照常。 */
+  [data-veil-anim] {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+  }
+}
+
+/* ============================================================
+   Bento 设计系统（工具箱主页骨架）
+   —— 取自 https://www.zhangyu.dev/ 的暗色模块样式，变量名保持一致语义。
+
+   ⚠️ 与上面那套 shadcn 变量**互不干涉**：
+      shadcn 用 HSL 三元组（`hsl(var(--primary))`），这里用 RGB 三元组（`rgb(var(--ink-1))`）。
+      尤其注意边框——shadcn 已占用 `--border`（HSL），所以这里另起名 `--hairline`，
+      直接改 `--border` 会让登录 / 注册页的 `@apply border-border` 全部失效。
+
+   为什么有两套值而不是一套：暗色不是浅色的简单反转。
+   浅色下 surface-1..4 越编号越**深**（往上叠的灰），
+   暗色下越编号越**浅**（越靠近前景的高亮面）。这是一条「海拔」刻度。
+   ============================================================ */
+
+@layer base {
+  :root {
+    /* ---- 字体（**自托管**，字体文件在 public/fonts/，@font-face 见 src/lib/fonts.ts）----
+       参考站用 next/font，变量名是 --font-remote-sans 等；
+       我们改名成 --font-nunito / --font-handwriting / --font-serif，
+       并在 tailwind.config.ts 里接到 font-body / font-handwriting / font-serif。
+       🔴 这里只声明**字体名**，别把 @font-face 搬进来：CSS 里的 url() 相对样式表
+          解析，构建产物中样式表在 /_next/static/css/ 而字体在 /fonts/，路径对不上；
+          写绝对路径 /fonts/... 在 basePath=/pgl-tools 时又会 404。
+          详见 PROJECT.md 2.2 与 8.7。 */
+    --font-nunito: "Nunito";
+    --font-handwriting: "Handlee";
+    --font-serif: "Sorts Mill Goudy";
+
+    /* 浅色：白纸 */
+    --surface: 255 255 255; /* 页面底 */
+    --surface-1: 248 250 252; /* 卡片面（最浅的浮起层） */
+    --surface-2: 241 245 249;
+    --surface-3: 226 232 240;
+    --surface-4: 203 213 225; /* 最重的控件面 */
+    --ink-1: 30 41 59; /* 正文主色 */
+    --ink-2: 51 65 86;
+    --ink-3: 71 85 105;
+    --ink-4: 100 116 139; /* 最弱的辅助文字 */
+    --hairline: 229 231 235; /* 分界线 / 卡片描边 */
+    --brand: 249 115 22; /* 强调色（橙） */
+  }
+
+  .dark {
+    /* 暗色：星空 */
+    --surface: 0 2 18; /* #000212 —— 近黑的深蓝，不是纯黑 */
+    --surface-1: 30 41 59;
+    --surface-2: 51 65 85;
+    --surface-3: 71 85 105;
+    --surface-4: 100 116 139;
+    --ink-1: 248 250 252;
+    --ink-2: 241 245 249;
+    --ink-3: 226 232 240;
+    --ink-4: 203 213 225;
+    --hairline: 51 65 85;
+    --brand: 226 232 240; /* 暗色下强调色退成冷灰蓝，避免橙色刺眼 */
+  }
+}
+
+/* 纸张底纹（便签模块用）：左侧橙色书脊线 + 横向蓝线网格 */
+.bg-paper {
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent,
+      transparent 5%,
+      rgb(234 88 12) 0,
+      rgb(234 88 12) calc(5% + 2px),
+      transparent calc(5% + 2px),
+      transparent
+    ),
+    linear-gradient(rgb(255 255 255) 56px, transparent 0),
+    repeating-linear-gradient(
+      rgb(14 165 233),
+      rgb(14 165 233) 2px,
+      transparent 0,
+      transparent 32px
+    ),
+    linear-gradient(rgb(255 255 255), rgb(255 255 255));
+}
+
+.dark .bg-paper {
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent,
+      transparent 5%,
+      rgb(113 113 122) 0,
+      rgb(113 113 122) calc(5% + 2px),
+      transparent calc(5% + 2px),
+      transparent
+    ),
+    linear-gradient(rgb(17 24 39) 56px, transparent 0),
+    repeating-linear-gradient(
+      rgb(63 63 70),
+      rgb(63 63 70) 2px,
+      transparent 0,
+      transparent 32px
+    ),
+    linear-gradient(rgb(17 24 39), rgb(17 24 39));
+}
+
+/* 同上的暗色版，但做成「独立类」——参考站是在卡片上写 `bg-paper dark:bg-paper-dark`
+   两个类并存（而不是靠后代选择器），层级更清楚，也更方便覆盖。 */
+.bg-paper-dark {
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent,
+      transparent 5%,
+      rgb(113 113 122) 0,
+      rgb(113 113 122) calc(5% + 2px),
+      transparent calc(5% + 2px),
+      transparent
+    ),
+    linear-gradient(rgb(17 24 39) 56px, transparent 0),
+    repeating-linear-gradient(
+      rgb(63 63 70),
+      rgb(63 63 70) 2px,
+      transparent 0,
+      transparent 32px
+    ),
+    linear-gradient(rgb(17 24 39), rgb(17 24 39));
+}
+
+/* 手写体（Pinned 便签卡）。字体自托管在 public/fonts/，见 src/lib/fonts.ts */
+.font-handwriting {
+  font-family: var(--font-handwriting), var(--font-nunito), sans-serif;
+}
+
+/* ------------------------------------------------------------------
+   微动效关键帧 —— 六个 keyframes 逐字照抄参考站
+
+   参考站的命名与我们不同（它叫 animation-hello / animation-breath …），
+   下面**同时**提供参考站原名与我们自己的别名，两边都可用：
+     .animation-hello  ≡ .animate-hello
+     .animation-breath ≡ .animate-breath
+   ------------------------------------------------------------------ */
+
+/* 呼吸：只声明终点，配合 `infinite alternate` 来回荡。
+   🔴 用的是独立 `scale` 属性而不是 `transform: scale()` ——
+      头像卡的涟漪同时依赖 `inset` 定位，用 transform 会和定位互相覆盖。 */
+@keyframes breath {
+  100% {
+    scale: 0.8;
+  }
+}
+
+/* 打招呼：👋 挥手 */
+@keyframes hello {
+  50% {
+    transform: translateY(-25%) rotate(15deg);
+  }
+}
+
+/* 淡入 / 淡出：只声明终点，配合 `forwards` 停在终态 */
+@keyframes fade-in {
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 终端光标闪烁（typed.js 自带样式，0.7s 不是 1s） */
+@keyframes typedjsBlink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ---- 参考站原名的工具类 ---- */
+.animation-hello {
+  animation: 3s ease 0s infinite normal none running hello;
+}
+.animation-breath {
+  animation: 2s ease 0s infinite alternate none running breath;
+}
+.animation-fade-in {
+  animation: 0.5s ease 0s 1 normal forwards running fade-in;
+}
+.animation-fade-out {
+  animation: 0.5s ease 0s 1 normal forwards running fade-out;
+}
+
+/* typed.js 的光标：默认常亮，加上 --blink 才闪 */
+.typed-cursor {
+  opacity: 1;
+}
+.typed-cursor--blink {
+  animation: 0.7s ease 0s infinite normal none running typedjsBlink;
+}
+
+/* ---- 我们自己的别名（老代码 / tailwind.config 里的 animate-* 用）---- */
+.animate-hello {
+  animation: 3s ease 0s infinite normal none running hello;
+}
+.animate-breath {
+  animation: 2s ease 0s infinite alternate none running breath;
+}
+.animate-fade-in {
+  animation: 0.5s ease 0s 1 normal forwards running fade-in;
+}
+.animate-fade-out {
+  animation: 0.5s ease 0s 1 normal forwards running fade-out;
+}
+
+/* 终端光标：非 typed.js 场景（静态文案）用的硬切版 */
+@keyframes cursor-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+.animate-cursor-blink {
+  animation: cursor-blink 1.1s steps(1) infinite;
+}
+
+/* ------------------------------------------------------------------
+   汇聚入场（/bento 专用）
+
+   登录成功后幕布已经把屏幕渐变成纯黑，进入本页时卡片仍然是不可见的。
+   JS 先量出每张卡的位置，算出「它相对屏幕中心的方向」，
+   再沿那个方向把它推到屏幕外（写进 --cv-x / --cv-y），
+   最后由 keyframes 让它飞回原位 —— 整体看起来就是「从四面八方汇聚进来」。
+
+   ⚠️ --cv-x / --cv-y / --cv-delay 三个变量是 use-converge-in.ts 在客户端
+      测量后写进 inline style 的。SSR 阶段它们并不存在，所以 boot 态必须
+      先把卡片藏起来：否则会先闪一帧「卡片已经在原位」，飞入感全毁。
+   ------------------------------------------------------------------ */
+
+@keyframes converge-in {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--cv-x, 0px), var(--cv-y, 0px), 0) scale(0.66);
+    filter: blur(8px);
+  }
+  55% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* 待命：还没测量完，卡片一律不可见（此时屏幕上只有一层全黑幕布） */
+[data-converge="boot"] [data-bento-card] {
+  opacity: 0;
+}
+
+/* 🔴 兜底：boot 态的黑幕**不能永久挂着**。
+   幕布的 opacity 由 JS 按阶段机写 inline style，卡片又在这个状态下被置为
+   `opacity: 0` —— 万一 JS 整段没跑起来（脚本被禁用、chunk 404 导致 hydration
+   失败……），两样都停在初始态：幕布全黑、卡片隐身，页面底色又是近黑的
+   rgb(12,10,9)，用户看到的就是**永久黑屏**。
+   实测正常流程 boot 只持续到 ~2.9s 就切 flying，所以 8s 的延迟在正常情况下
+   **永远不会触发**（那时 `.boot` 早已不是当前态），纯粹是安全网。
+   注意 CSS 动画的优先级高于 inline 的非 `!important` 声明，所以压得住幕布。
+   幕布自带 `pointer-events-none`，即使 opacity 归零也不会挡住下面的点击。 */
+@keyframes curtain-failsafe {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes cards-failsafe {
+  to {
+    opacity: 1;
+  }
+}
+[data-converge="boot"] > [data-curtain] {
+  animation: curtain-failsafe 600ms ease 8s forwards;
+}
+[data-converge="boot"] [data-bento-card] {
+  animation: cards-failsafe 600ms ease 8s forwards;
+}
+
+/* 飞入：从屏幕外飞回网格位。延迟由「卡片到屏幕中心的距离」决定，
+   近的先落位、外围后合拢，这样才有「聚拢」的推力感而不是齐刷刷闪现。
+   🔴 这里的 900ms 与 use-converge-in.ts 的 FLY_DURATION 必须一致：
+      收尾是 JS 用定时器算出来的，改了这边不改那边就会在动画播完前硬切。 */
+[data-converge="flying"] [data-bento-card] {
+  animation: converge-in 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--cv-delay, 0ms);
+  will-change: transform, opacity, filter;
+}
+
+/* 落位：动画播完后 JS 切到 settled。
+   🔴 必须切走，不能一直挂着 flying ——
+   `animation-fill-mode: both` 会让动画终态一直压着卡片自己的 transform，
+   那样 hover:scale-105 和主题切换的过渡就全都失效了。 */
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-breath,
+  .animate-hello,
+  .animate-cursor-blink,
+  .animate-fade-in,
+  .animate-fade-out,
+  .animation-breath,
+  .animation-hello,
+  .animation-fade-in,
+  .animation-fade-out,
+  .typed-cursor--blink {
+    animation: none !important;
+  }
+
+  /* 降级时不让卡片卡在 boot 的不可见态。
+     这里敢用 animation: none，是因为汇入动画的收尾靠的是 JS 定时器而不是
+     animationend 事件 —— 动画被掐掉也不会导致状态机卡死。 */
+  [data-converge] [data-bento-card] {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+
+  /* 问候气泡是「① 正在输入…（3s 后淡出）→ ② 你好，我是小潘（3s 后淡入）」接力。
+     两个动画一起被掐掉后，① 会永远停在屏幕上、② 永远不出现 —— 只剩三个跳动的点。
+     这里直接把接力结果定下来，别再依赖动画。 */
+  [data-bubble="dots"] {
+    opacity: 0 !important;
+  }
+  [data-bubble="hello"] {
+    opacity: 1 !important;
+  }
+}

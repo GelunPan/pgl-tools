@@ -5,15 +5,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatedCharacters } from "@/components/ui/animated-characters";
+import { ColorVeil, type VeilOrigin } from "@/components/ui/color-veil";
 import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button";
 
 const loginSchema = z.object({
@@ -52,6 +54,9 @@ export default function LoginPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  // 登录成功后的全屏幕布：null = 不显示，有值 = 从该点扩散并逐渐变黑
+  const [veil, setVeil] = useState<VeilOrigin | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -101,8 +106,16 @@ export default function LoginPage() {
         description: `欢迎回来，${user.name}！`,
       });
 
-      // 跳转到欢迎页
-      router.push("/welcome");
+      // 登录成功：不直接跳转，改为让幕布从「登录按钮」的位置扩散铺满全屏，
+      // 并在扩散后半程悄悄由主题蓝变纯黑。全部变完之后才跳转（见下方 ColorVeil
+      // 的 onComplete），这样跳转时屏幕已经是一片纯黑，与欢迎页底色完全一致
+      // —— 既看不到页面切换，也感觉不到颜色是什么时候变的。
+      const rect = buttonRef.current?.getBoundingClientRect();
+      setVeil(
+        rect
+          ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+          : { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+      );
     } catch (err: any) {
       setError(err.message || "登录失败，请重试。");
       toast({
@@ -110,7 +123,7 @@ export default function LoginPage() {
         description: err.message,
         variant: "destructive",
       });
-    } finally {
+      // 只有失败才解除加载态；成功时按钮保持「正在登录…」直到被幕布盖住
       setIsLoading(false);
     }
   };
@@ -125,7 +138,12 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen max-h-screen overflow-hidden grid lg:grid-cols-2">
       {/* Left Content Section with Animated Characters */}
-      <div className="relative hidden lg:flex flex-col justify-between bg-gradient-to-br from-gray-400 via-gray-500 to-gray-600 dark:from-white/90 dark:via-white/80 dark:to-white/70 p-12 text-white dark:text-gray-900">
+      <div
+        className={cn(
+          "relative hidden lg:flex flex-col justify-between bg-gradient-to-br from-gray-400 via-gray-500 to-gray-600 dark:from-white/90 dark:via-white/80 dark:to-white/70 p-12 text-white dark:text-gray-900 transition-all duration-500 ease-out",
+          veil && "scale-[1.05] opacity-0",
+        )}
+      >
         <div className="relative z-20">
           <Link
             href="/login"
@@ -161,7 +179,12 @@ export default function LoginPage() {
       </div>
 
       {/* Right Login Section */}
-      <div className="flex items-center justify-center p-8 bg-background">
+      <div
+        className={cn(
+          "flex items-center justify-center p-8 bg-background transition-all duration-500 ease-out",
+          veil && "scale-[1.05] opacity-0",
+        )}
+      >
         <div className="w-full max-w-[420px]">
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center gap-2 text-lg font-semibold mb-12">
@@ -258,6 +281,7 @@ export default function LoginPage() {
             )}
 
             <InteractiveHoverButton
+              ref={buttonRef}
               type="submit"
               text={isLoading ? "正在登录..." : "登录"}
               className="w-full h-12 text-base font-medium"
@@ -277,6 +301,14 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* 登录成功后的幕布：从登录按钮位置扩散铺满整屏，铺满后是主题蓝，
+          再在扩散后半程悄悄暗下去变纯黑，全黑之后才跳转工具箱（见下方 onComplete）。
+          跳过去的 /bento 首帧也是一层纯黑幕布（同色 #000），然后才淡出露出
+          #000212 的夜色底并让所有模块从四周汇聚进来 —— 两段动效是接在一起的。
+          注意：它是固定定位，必须挂在没有 transform / filter / opacity 的祖先下，
+          否则会被降级成「相对该祖先定位」并跟着一起淡出。 */}
+      <ColorVeil origin={veil} onComplete={() => router.push("/bento")} />
     </div>
   );
 }

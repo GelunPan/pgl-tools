@@ -5,6 +5,8 @@
   "description": "苹果绿的工具箱 · pgl-tools（纯前端登录 / 注册静态页面，可部署 GitHub Pages）",
   "scripts": {
     "dev": "next dev --turbopack -p 9002",
+    "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
+    "dev:fresh": "npm run clean && npm run dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -29,6 +31,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.20",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
