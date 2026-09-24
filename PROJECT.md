@@ -1510,6 +1510,12 @@ powershell -ExecutionPolicy Bypass -File .\deploy.ps1 "说明"
 > 本机环境里 `git push` 会**偶发静默失败**：返回 `exit=128` 但 stderr 完全为空，
 > 看起来像成功、实际没推上去（定位到是 git 凭据管理器在非交互上下文下取 token 失败）。
 > 所以脚本必须靠"重试 + 拉回远端比对 SHA"来兜底，**光看退出码不够**。
+>
+> ⚠️ **2026-09-24 补充**：现在**重试 3 次也已经救不回来了** —— 失败原因换成了
+> `schannel CRYPT_E_NO_REVOCATION_CHECK`（见 §8.9 的 🔴 更新）。
+> 也就是说：**`deploy.ps1` 会一路 `exit 1`，得手动补一次 §8.9 的绕法推送。**
+> 脚本第 1、2 步（add + commit）照样有效，所以别重跑整个脚本 ——
+> 直接补推送即可，避免产生重复提交。
 
 > 🔴 **脚本的职责边界**：它**只负责推送**，不执行构建。
 > 构建部署是推送之后由 GitHub Actions 接手的（接力关系，不是包含关系）。
@@ -1674,7 +1680,7 @@ curl -sI https://gelunpan.github.io/pgl-tools/ | head -2
 | 39 | **预览服务的进程 cwd 不要落在项目的 `out/` 里** | 否则 `next build` 收尾清理旧产物时会失败：`EBUSY: rmdir 'out'` / `[safe-delete] … out: Error during a trash operation`（Windows 上 cwd 在目录里就等于锁住它，删/移都不让）。两个办法：① 把 `out/` 复制到项目外再 serve；② **从项目根用 `python -m http.server 9100 --directory out`** 起服务 —— 进程 cwd 在项目根，`out/` 没被锁，构建照跑（2026-09-24 实测） |
 | 40 | 构建日志不要写在项目内 | 会被 git 提交。写到项目外，或用完立即删 |
 | 41 | 提交信息含中文时不要用 `Out-File -Encoding ascii` | 中文会被替换成 `?`。用 UTF-8 无 BOM 写入后 `git commit -F <文件>` |
-| 42 | 沙箱内 `git push` 可能静默失败 | 靠 `deploy.ps1` 的重试 + SHA 比对兜底；在用户自己的终端里跑则有凭据弹窗兜底 |
+| 42 | 🔴 **本机 `git push` 必须走 §8.9 的绕法（读凭据文件 + `sslBackend=openssl`），否则必失败** | 2026-09-24 17:06 实测：沙箱内静默 `exit=128`（stderr 空）；**非沙箱**下秒报 `schannel: CRYPT_E_NO_REVOCATION_CHECK`。**`deploy.ps1` 只会打印 `exit 1`，三次重试都捞不到信息**。判断成败一律以 `git ls-remote origin refs/heads/main` 是否等于本地 `HEAD` 为准。见 §8.9 |
 | 43 | **验证动效别靠肉眼，逐帧量** | 跨页面幕布动效 → `workspace\trace-dark.js`（用法 `BASE=<url> node trace-dark.js`）；bento 的入场 / 各卡动效 → `bento-converge.js` / `bento-anim.js` / `bento-reduced-motion.js`，清单见 4.7.15。前提：在该目录 `npm i puppeteer-core`，用本机 Chrome |
 | 44 | 🔴 **同一个项目同时只能有一个 dev server** | 两个 dev 进程共写同一个 `.next`，后跑的那个会把先跑的产物覆盖掉，先跑的那个随即整站 500，报 `Cannot find module './chunks/ssr/[turbopack]_runtime.js'`（`_document.js` / `page.js` 里 `require` 的分片被删了）。**尤其别用 `next dev`（默认 webpack）去配 `next dev --turbopack`** —— 两套产物格式不同，互相破坏是必然的。需要跑探针脚本时**直接复用已经在跑的 9002**，不要另起一个（见 6.3 第 46 条） |
 | 45 | **dev server 的端口** | `npm run dev` 固定 **9002**，探针脚本的默认地址也已经是 `http://127.0.0.1:9002/bento/`。注意项目开了 `trailingSlash`，`/bento` 会 **308 跳到 `/bento/`**，直接探 `/bento` 会看着像异常 |
@@ -1998,12 +2004,33 @@ password=<…>
 ⚠️ **防复发**：`etc/gitconfig` 属 **WorkBuddy 便携 Git 的安装目录**，
 升级 / 重装 PortableGit 会把它**重置回 `helper-selector`** —— 弹窗复发时先查这里。
 
-⬇️ 下面的绕法**保留为兜底方案**（根因已修，正常情况下直接用标准 `git push` 即可）。
+⬇️ 下面的绕法**现在是常规做法，不是兜底** —— 2026-09-24 实测本机直接 `git push`
+会撞 `schannel CRYPT_E_NO_REVOCATION_CHECK`（详见下面那条 🔴 更新）。
 
 > ⚠️ 只传 `-c credential.helper="store --file=…"` **没有用**：命令行的 `-c` 只是
 > **追加**到 helper 链上，前面的全局 helper 照样会被调用。**必须先把整条链清空。**
 
 **兜底做法：绕开 GCM，直接读 Windows 凭据管理器**
+
+> 🔴 **2026-09-24 17:06 更新（重要修正）**：上面那句「根因已修，正常情况下直接用标准
+> `git push` 即可」**已经不成立** —— 那次修的是「弹窗卡死」，这次卡住的是**另一件事**。
+> 当天实测：在**非沙箱**环境直接 `git push origin main`，秒失败：
+>
+> ```
+> fatal: unable to access 'https://github.com/GelunPan/pgl-tools.git/':
+> schannel: next InitializeSecurityContext failed: CRYPT_E_NO_REVOCATION_CHECK
+> (0x80092012) - 吊销功能无法检查证书是否吊销。
+> ```
+>
+> 症状是 **`deploy.ps1` 只会打印 `exit 1`、三次重试全军覆没、什么错误都看不到**
+> （重试循环把 stderr 吞了）。**结论：本机现在每次推送都得走下面的绕法。**
+> 好消息是绕法本身很稳 —— 当天从读凭据到 push 成功只花了十几秒。
+>
+> ⚠️ 沙箱内会更隐蔽：直接报 `exit=128` 且 **stderr 完全为空**（＝约束 42），
+> 所以**判断成败一律以 `git ls-remote origin refs/heads/main` 是否等于本地 HEAD 为准**。
+>
+> 💡 顺带：本机 `curl` 访问 HTTPS 也会撞同一个 `CRYPT_E_NO_REVOCATION_CHECK`，
+> 加 `-k` 就通（例：`curl -sk https://api.github.com/...`）。查 CI 状态时记得加。
 
 > ⚠️ `git credential fill`（走 GCM）**时快时慢** —— 命中内存缓存时秒回，
 > 缓存失效需要联网刷新 token 时可能**挂住**（那次实测 180s 超时的**主因就是上面的 selector 弹窗**，
