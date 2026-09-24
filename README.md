@@ -45,7 +45,7 @@
   | **黑猫**（第 2 格） | **一只可以撸的黑猫**（本项目自己加的彩蛋，参考站没有）：照小潘给的写实风黑猫参考图做的 —— **暖调炭黑毛 `#302D26` + 黄绿眼 `#C6D74F`**、短圆耳、深色鼻嘴胡须（**没有**项圈/铃铛/腮红/白肚子），背景是参考图那种**奶油米色**。眼睛**跟着鼠标转**，鼠标在页面任何位置都盯得住；点一下 → 眯眼笑 + 冒气泡（文案按次数轮换）；**1.6 秒内连点 7 下** → 爱心/星星/爪印**分两轮齐飞** + 转圈跳 + 吐舌头 + 「喵喵喵！被你发现了 🎉」。尾巴、头顶呆毛、一层暖光一直在动。**彩蛋有 0.5s 保护期**：手快补点不会把它点没 |
   | 页头胶囊导航 | 白块**滑动**指示器（700ms 缓动）+ **分类切换**：点「工具箱 / 标签 / 项目 / 关于」→ 命中的卡片**滑到最前排**（`order` 重排 + FLIP 补间，照参考站逐字节复刻），其余卡片模糊弱化；点「全部」恢复 |
   | SKILLS 挂钩板 | **真的 2D 刚体模拟**：16 个技术徽章**一开始全部隐藏，然后一颗颗出现掉落**（参考站同款节奏），被 13 个挂钩弹开、堆在底部（可点左上角按钮重来） |
-  | 终端 | 打字机循环（`vim` → `cat resume` → `ls tools`），停手时光标硬切闪烁；**点一下真的执行并跳转** —— 回车 → 逐行吐输出 + 绿光扫屏 → 进入 **`/resume` 简历终端**（整页假终端会话） |
+  | 终端 | 打字机循环（`vim` → `cat resume` → `ls tools`），停手时光标硬切闪烁；**点一下真的执行并跳转** —— 回车 → 逐行吐输出 + 绿光扫屏 → 进入 **`/resume` 简历终端**（macOS 终端窗：红黄绿三灯 + 逐字打字的会话） |
   | 问候气泡 | 「对方正在输入…」三个跳动的点，3s 后接力换成「你好，我是小潘」 |
   | 字体矩阵 | 悬停整卡 → 所有字形一起转 360° |
   | Pinned 便签 | 悬停 → 纸面 + 两层投影一起放大 1.03 倍，像翘起一角 |
@@ -62,7 +62,7 @@
   | | ① 工具箱格那只 | ② 登录页那只 |
   | --- | --- | --- |
   | 位置 | `/bento` 网格**第 2 格**（源码里的第 2 张卡，原「头像」格） | **`/login` 邮箱输入框的顶沿上** |
-  | 姿势 | **大头坐姿**（头占近六成、超大黄绿眼、圆润小墩子身体、尾巴在身前勾个小弯） | **坐着**（照参考图那副坐相，尾巴搭在框边） |
+  | 姿势 | **侧躺**（身体横躺成一只圆面包、头在右端高高支起、前爪伸向右前方、尾巴从左后方卷个小勾） | **坐着**（照参考图那副坐相，尾巴搭在框边） |
   | 配色 | **黑猫**：暖调炭黑 `#302D26` + **黄绿眼** `#C6D74F` | 同一套色板 + `.cat-halo` 柔光底 |
   | 眼睛 | 跟着鼠标转（全页面范围） | 同样跟着鼠标转 |
   | 点一下 | 眯眼笑 + 冒气泡 | 眯眼笑 + 冒气泡 |
@@ -251,7 +251,7 @@ NEXT_PUBLIC_BASE_PATH="/<仓库名>" npm run build
 | 卡片样式 / 圆角 / 细边 / 分类重排 | `src/components/bento/bento-card.tsx` | 细边那四件套一个都不能删，详见 PROJECT.md 4.7.2。⚠️ **网格顶部 `pt-24 xl:pt-28` 是挥手的天顶，不能改小**（硬约束 54）；新卡必须挂 `dataType`（硬约束 55） |
 | 日月切换动效 | `src/components/bento/theme-toggle.tsx` | 详见 PROJECT.md 4.7.5。⚠️ 里面的 `<button>` 不能加 `relative` |
 | 挂钩板物理参数 / 徽章列表 | `src/components/bento/pegboard.tsx` | `BADGES` / `PEGS` / `GRAVITY` / `DROP_INTERVAL`。加徽章要同时往 `public/brands/` 放 logo |
-| 终端话术 / 点击输出 / 简历页 | `src/components/bento/terminal.tsx` + `src/app/resume/page.tsx` | `SCRIPTS`（每句 `cmd` + 点击后逐行吐出的 `out`）、`TYPE_MS` / `OUT_STEP_MS`；简历内容全在 `/resume` 页里直接改 |
+| 终端话术 / 点击输出 / 简历页 | `src/components/bento/terminal.tsx` + `src/components/resume/terminal-session.tsx` | `SCRIPTS`（每句 `cmd` + 点击后逐行吐出的 `out`）、`TYPE_MS` / `OUT_STEP_MS`；简历内容（打字序列 + macOS 窗口）全在 `terminal-session.tsx` 里改 |
 | **两只猫**（毛色 / 连点次数 / 瞳孔幅度 / 彩蛋文案） | `src/components/bento/cat.tsx`（**大头坐姿**）、`src/components/ui/login-cat.tsx`（**坐姿**）、`src/hooks/use-pet.ts`（共用逻辑） | 连点次数 / 判定窗口 / **彩蛋保护期**是传给 `usePetSequence()` 的参数（`eggCount` / `windowMs` / `eggCooldownMs`）；文案在两个文件顶部的 `HAPPY_TEXTS` 与 `eggText`；毛色（暖调炭黑 `#302D26` + 黄绿眼 `#C6D74F`）都写在各自的 SVG 里。尾巴摆幅 / 呼吸 / 呆毛 / 暖光在 `globals.css` 的 `@keyframes cat-tail` / `cat-breathe` / `cat-tuft` / `cat-glow`。⚠️ `cat-party` 的时长必须与 `partyMs` 对齐（见 PROJECT.md 硬约束第 25 条） |
 | 登录页那只猫的位置 / 大小 / 暗示文案 | `src/components/ui/login-cat.tsx` + `src/app/(auth)/login/page.tsx` | 猫是 `left-[8%] top-[-70px] h-[76px] w-[104px]`（**只压框子 6px**，不能随便挪 —— 输入框上方只剩 ~56px，改之前先跑 `measure-login2.js`），暗示是登录页里那个 `.cat-hint` 的 `<span>` |
 | 沙丘起伏速度 / 颜色 | `src/components/bento/wave-canvas.tsx` | `t += 0.006` 是速度；颜色读的是 class 里的 `fill-ink-1 dark:fill-surface-1` |
@@ -313,8 +313,10 @@ npm run build            # 2. 可选：确认能正常构建
 │   │   │   ├── terminal.tsx       # 终端（打字机循环 + 点一下执行后跳 /resume）
 │   │   │   ├── wave-canvas.tsx    # 沙丘 canvas + 反色文字
 │   │   │   ├── theme-toggle.tsx   # 日月主题切换
-│   │   │   ├── cat.tsx            # 第 2 格那只**大头坐姿**的黑猫（点它 / 连点 7 次有彩蛋）
+│   │   │   ├── cat.tsx            # 第 2 格那只**侧躺**的黑猫（点它 / 连点 7 次有彩蛋）
 │   │   │   └── icons.tsx          # 内联 SVG 图标（tabler 路径）
+│   │   ├── resume/
+│   │   │   └── terminal-session.tsx  # /resume 的 macOS 终端本体（三灯窗口 + 打字机会话）
 │   │   └── theme-provider.tsx
 │   ├── hooks/                     # use-toast / use-bento-theme / use-converge-in / use-pet（撸猫状态机）/ use-flip（分类切换的 FLIP 补间）
 │   ├── lib/                       # utils.ts（cn）/ asset.ts（basePath 资源路径）/ fonts.ts（@font-face）

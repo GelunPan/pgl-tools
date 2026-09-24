@@ -33,26 +33,27 @@ import { usePetSequence } from "@/hooks/use-pet";
    |---|---|---|
    | 毛（主色） | `#302D26` | **暖调炭黑**。参考图的黑猫不是纯黑，是带一点暖褐的深灰 |
    | 毛（受光面） | `#3A362D` | 口鼻区 / 胸口 / 前腿 —— 比主色亮一档，撑出体积感 |
-   | 毛（纹理） | `#413C31` | 背上、肩上那几笔短毛（参考图也有这种手绘笔触） |
+   | 毛（纹理） | `#413C31` | 身上那几笔短毛（参考图也有这种手绘笔触） |
    | 眼（虹膜） | `#C6D74F` | **黄绿**（参考图就是黄绿的，不是琥珀黄）；上缘再叠 `#DCE566` |
    | 眼（竖缝） | `#14120F` | 细竖缝，外面套一圈 `#16130F` 描边当眼眶 |
    | 鼻 / 嘴 / 趾缝 | `#584F4B` / `#16130F` | 一律**深色**（参考图的黑猫没有粉色鼻子） |
    | 耳内 | `#4A4038` | 暗暖褐，不是粉色 |
    | 胡须 | `#4A4438` | **深色胡须**，画在奶油底色上才看得见 |
 
-   ⚠️ 参考图里**没有**项圈 / 铃铛 / 腮红 / 白肚子 —— 这一版全去掉了（2026-09-24）。
+   ## 姿势：**侧躺**（2026-09-24 深夜第五版，小潘点名要求）
 
-   ## 姿势：大头坐姿（2026-09-24 第二版，照小潘新给的卡通参考图）
+   坐姿版被小潘评了「猫咪的形象还是没改成侧躺啊……一定要侧躺」—— 好，
+   这一版整个翻转成经典侧躺姿：
 
-   老版趴卧被小潘评了「姿势很怪，也不够可爱」，发来一张新参考图：
-   **大头圆身的坐姿黑猫** —— 头占画面近六成、超大黄绿眼、身体只是一个圆润的墩子、
-   前爪并排立在胸口正下方、尾巴从右侧绕到身前地上勾起来。这一版照它重画：
-
-   - **头大 = 萌的铁律**再往上顶一格：`r=46`（老版 42），头几乎和身体一样宽
-   - **眼睛显著加大**（rx 15 / ry 17，老版 12.5/14）—— 参考图的眼睛占了半张脸，
-     这是它「可爱」的最大来源；竖缝瞳 + 一大一小两处高光照旧
-   - 前爪不再「朝镜头伸出来」，改成**并排直立在胸口下**（坐姿的正确读法）
-   - 尾巴从右后方绕出来**在身前地上勾起一个小弯**（参考图的招牌动作）
+   - **身体**：一只横躺的圆面包（椭圆 cx=92 cy=150 rx=64 ry=36），
+     从左侧一直铺到画面中部，肚皮贴地；
+   - **头**：在**右端**高高支起来（cx=140 cy=100 r=42），下巴微抬 ——
+     侧躺的猫就是这么枕着身子看你的；脸心在卡片 (70%, 50%) 处，视线跟随锚在这；
+   - **前爪**：两只一前一后**从胸口底下伸向右前方**（侧躺的招牌动作），
+     趾缝用深色短线点出来；
+   - **尾巴**：从身体左后方绕出来，向上卷一个小勾（尾巴根 origin 30px 148px）；
+   - 胡须朝左上 / 右侧散开（左上有大片奶油底，看得最清楚）；
+   - 登录页那只**不动**（小潘原话：登录页就不用改了）。
 
    ## 🔴 底色是奶油米色，不是蓝！
 
@@ -62,8 +63,8 @@ import { usePetSequence } from "@/hooks/use-pet";
 
    ## 憨态可掬的诀窍
 
-   头大（r=46 ≈ 身宽）、眼睛大且**一瞳两高光**、耳朵短圆且立着、
-   尾巴尖在地上勾一个小弯 —— 全是「幼态延续」+「猫本来就这样」的特征。
+   头大（r=42）、眼睛大且**一瞳两高光**、耳朵短圆、侧躺时下巴微抬 +
+   前爪往前搭 —— 全是「幼态延续」+「猫躺平的真实样子」。
    ============================================================================ */
 
 /** 普通点击的气泡文案池，按点击次数依次轮换 —— 越点反应越不一样 */
@@ -97,9 +98,9 @@ export function BentoCat() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     /** 竖缝瞳孔的最大位移（SVG 用户单位，viewBox 200）。
-        上限：虹膜 rx 15 / 眼缝 rx 4.6 → 水平最多 10.4；ry 17 / 11 → 最多 6。
+        上限：虹膜 rx 14.5 / 眼缝 rx 4.6 → 水平最多 9.9；ry 16.5 / 11 → 最多 5.5。
         取 6.5 / 4 留余量 —— 大高光（圆心相对眼缝偏 4 / -6.5，半径 3.4）
-        最远探到 13.9 < 15，不会从虹膜边缘探出去。 */
+        最远探到 14.2 < 14.5，不会从虹膜边缘探出去。 */
     const MAX_X = 6.5;
     const MAX_Y = 4;
     let raf = 0;
@@ -107,9 +108,9 @@ export function BentoCat() {
     const apply = (px: number, py: number) => {
       const r = el.getBoundingClientRect();
       if (!r.width) return;
-      // 脸在卡片高度约 44% 处（坐着，大头在上方，眼睛在 y≈88/200）
-      const ex = r.left + r.width * 0.5;
-      const ey = r.top + r.height * 0.44;
+      // 侧躺版：头支在右端，脸心在卡片约 (70%, 50%) 处
+      const ex = r.left + r.width * 0.7;
+      const ey = r.top + r.height * 0.5;
 
       let dx = (px - ex) / (r.width * 0.6);
       let dy = (py - ey) / (r.width * 0.6);
@@ -175,17 +176,17 @@ export function BentoCat() {
       ) : null}
 
       <svg className="cat-svg" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
-        {/* 地上那团影子（参考图也有一只柔和的椭圆投影）。它不跟着跳 */}
-        <ellipse cx="100" cy="186" rx="62" ry="8" fill="#8A7F66" opacity="0.2" />
+        {/* 地上那团影子（侧躺的身体 + 伸出去的爪子都罩在里面）。它不跟着跳 */}
+        <ellipse cx="98" cy="187" rx="72" ry="7.5" fill="#8A7F66" opacity="0.2" />
 
         {/* 身体组：呼吸 + 彩蛋时整只跳。**尾巴挂在身体里面**，
             这样跳的时候尾巴根不会跟身体脱开；尾巴自己再叠一层摆动。 */}
         <g className="cat-body">
-          {/* ---- 尾巴：从右后方绕出来，在身前地上勾起一个小弯（参考图的招牌）----
+          {/* ---- 尾巴：从身体左后方绕出来，向上卷一个小勾 ----
                先画，压在身体后面 —— 尾巴根就藏在身体里 */}
           <g className="cat-tail">
             <path
-              d="M142 152 C 180 158, 192 182, 164 187 C 148 190, 140 180, 148 174"
+              d="M30 148 C 8 150, 4 122, 24 113 C 36 108, 44 118, 38 126"
               fill="none"
               stroke="#302D26"
               strokeWidth="12"
@@ -193,56 +194,57 @@ export function BentoCat() {
             />
           </g>
 
-          {/* ---- 身体（坐姿的圆润小墩子：几乎和头一样宽）---- */}
-          <ellipse cx="100" cy="148" rx="50" ry="34" fill="#302D26" />
-          {/* 背上那几笔短毛（参考图的手绘笔触），比主色亮一档 */}
+          {/* ---- 身体（侧躺的圆面包：横躺着铺在画面下半部）---- */}
+          <ellipse cx="92" cy="150" rx="64" ry="36" fill="#302D26" />
+          {/* 身上那几笔短毛（参考图的手绘笔触），比主色亮一档 */}
           <g stroke="#413C31" strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.9">
-            <path d="M58 128 C 64 124, 70 123, 76 124" />
-            <path d="M54 146 C 60 143, 66 142, 72 143" />
-            <path d="M142 126 C 136 123, 130 122, 124 123" />
+            <path d="M52 130 C 58 126, 64 125, 70 126" />
+            <path d="M46 150 C 52 147, 58 146, 64 147" />
+            <path d="M66 162 C 72 159, 78 158, 84 159" />
+            <path d="M120 156 C 126 153, 132 152, 138 153" />
           </g>
 
-          {/* ---- 前腿：并排直立在胸口正下方（坐姿的正确读法）----
+          {/* ---- 前腿：一前一后从胸口底下伸向右前方（侧躺的招牌）----
                比身体亮一档，否则同色会糊成一块；趾缝用深色短线 */}
-          <rect x="77" y="146" width="17" height="38" rx="8.5" fill="#3A362D" />
-          <rect x="106" y="146" width="17" height="38" rx="8.5" fill="#3A362D" />
+          <rect x="130" y="162" width="52" height="14" rx="7" fill="#3A362D" />
+          <rect x="140" y="171" width="54" height="14" rx="7" fill="#3A362D" />
           <g stroke="#16130F" strokeWidth="2" strokeLinecap="round" opacity="0.75">
-            <path d="M82.5 176 L82.5 181" />
-            <path d="M89 176 L89 181" />
-            <path d="M111 176 L111 181" />
-            <path d="M117.5 176 L117.5 181" />
+            <path d="M175 165 L175 171" />
+            <path d="M180.5 165 L180.5 171" />
+            <path d="M186 174 L186 180" />
+            <path d="M191.5 174 L191.5 180" />
           </g>
 
           {/* ---- 耳朵（先画，让头把耳根盖住）----
-              短短圆圆、**立在头顶**：耳高 ≈ 头直径的 0.26（头 r=46 了，耳要更短）。
+              短短圆圆、立在头顶：耳高几何 ≈ 26-28 / 头径 84 ≈ 0.31-0.33（≤ 0.36 红线）。
               三个尖角靠「同色描边 + round 接合」磨圆。 */}
           <path
             className="cat-ear"
-            d="M62 54 L70 22 L85 45 Z"
+            d="M122 72 L130 44 L146 66 Z"
             fill="#302D26"
             stroke="#302D26"
             strokeWidth="8"
             strokeLinejoin="round"
           />
-          <path d="M67 47 L71 32 L80 43 Z" fill="#4A4038" />
+          <path d="M127 64 L131 50 L139 62 Z" fill="#4A4038" />
           <path
             className="cat-ear"
-            d="M138 54 L130 22 L115 45 Z"
+            d="M154 68 L164 44 L172 70 Z"
             fill="#302D26"
             stroke="#302D26"
             strokeWidth="8"
             strokeLinejoin="round"
           />
-          <path d="M133 47 L129 32 L120 43 Z" fill="#4A4038" />
+          <path d="M158 62 L163 50 L167 64 Z" fill="#4A4038" />
 
-          {/* ---- 头（大！参考图里头占近六成画面）---- */}
-          <circle className="cat-head" cx="100" cy="86" r="46" fill="#302D26" />
+          {/* ---- 头：侧躺时高高支起在右端，下巴微抬看镜头 ---- */}
+          <circle className="cat-head" cx="140" cy="100" r="42" fill="#302D26" />
 
           {/* 头顶那撮呆毛（两耳之间，参考图是一撮朝右勾的小卷）。
               🔴 要「短而粗」：细长的 S 形在截图里会读成一根触角。 */}
           <path
             className="cat-tuft"
-            d="M100 40 C 103 33, 100 28, 106 23"
+            d="M140 58 C 143 51, 140 46, 146 41"
             fill="none"
             stroke="#302D26"
             strokeWidth="5.5"
@@ -250,7 +252,7 @@ export function BentoCat() {
           />
 
           {/* 口鼻区：比主色亮一档的暖灰，小小一团就够 */}
-          <ellipse cx="100" cy="110" rx="18" ry="12" fill="#3A362D" />
+          <ellipse cx="140" cy="118" rx="16" ry="11" fill="#3A362D" />
 
           {/* ---- 眼睛：**超大**黄绿虹膜 + 细竖缝（参考图眼睛占半张脸）---- */}
           {happy ? (
@@ -258,14 +260,14 @@ export function BentoCat() {
                用状态切换而不是动画 —— 连点也能立刻看到反馈 */
             <>
               <path
-                d="M62 90 Q79 72 96 90"
+                d="M106 98 Q120 82 134 98"
                 fill="none"
                 stroke="#C6D74F"
                 strokeWidth="5"
                 strokeLinecap="round"
               />
               <path
-                d="M104 90 Q121 72 138 90"
+                d="M146 98 Q160 82 174 98"
                 fill="none"
                 stroke="#C6D74F"
                 strokeWidth="5"
@@ -277,61 +279,61 @@ export function BentoCat() {
               {/* 虹膜（静止：眼球不该跟着鼠标滑走）。外圈深色描边 = 眼眶 */}
               <ellipse
                 className="cat-iris"
-                cx="79"
-                cy="88"
-                rx="15"
-                ry="17"
+                cx="120"
+                cy="96"
+                rx="14.5"
+                ry="16.5"
                 fill="#C6D74F"
                 stroke="#16130F"
                 strokeWidth="2"
               />
               <ellipse
                 className="cat-iris"
-                cx="121"
-                cy="88"
-                rx="15"
-                ry="17"
+                cx="160"
+                cy="96"
+                rx="14.5"
+                ry="16.5"
                 fill="#C6D74F"
                 stroke="#16130F"
                 strokeWidth="2"
               />
               {/* 上缘更亮的一层黄 + 下缘压一档绿：参考图的眼睛上黄下绿 */}
-              <ellipse cx="79" cy="81" rx="10" ry="7.5" fill="#DCE566" opacity="0.8" />
-              <ellipse cx="121" cy="81" rx="10" ry="7.5" fill="#DCE566" opacity="0.8" />
-              <ellipse cx="79" cy="97" rx="11" ry="5.5" fill="#A9BE3D" opacity="0.55" />
-              <ellipse cx="121" cy="97" rx="11" ry="5.5" fill="#A9BE3D" opacity="0.55" />
+              <ellipse cx="120" cy="89.5" rx="9.5" ry="7" fill="#DCE566" opacity="0.8" />
+              <ellipse cx="160" cy="89.5" rx="9.5" ry="7" fill="#DCE566" opacity="0.8" />
+              <ellipse cx="120" cy="104.5" rx="10.5" ry="5" fill="#A9BE3D" opacity="0.55" />
+              <ellipse cx="160" cy="104.5" rx="10.5" ry="5" fill="#A9BE3D" opacity="0.55" />
               {/* 竖缝 + 一大一小两处高光：整组跟着 --gaze-x / --gaze-y 走。
                   两处高光是「水汪汪」的关键，一颗高光看着像塑料珠。 */}
               <g className="cat-eye-gaze">
-                <ellipse cx="79" cy="88" rx="4.6" ry="11" fill="#14120F" />
-                <circle cx="83" cy="81.5" r="3.4" fill="#FFFFFF" opacity="0.95" />
-                <circle cx="75.5" cy="95" r="1.7" fill="#FFFFFF" opacity="0.55" />
+                <ellipse cx="120" cy="96" rx="4.6" ry="11" fill="#14120F" />
+                <circle cx="124" cy="89.5" r="3.4" fill="#FFFFFF" opacity="0.95" />
+                <circle cx="116.5" cy="103" r="1.7" fill="#FFFFFF" opacity="0.55" />
               </g>
               <g className="cat-eye-gaze">
-                <ellipse cx="121" cy="88" rx="4.6" ry="11" fill="#14120F" />
-                <circle cx="125" cy="81.5" r="3.4" fill="#FFFFFF" opacity="0.95" />
-                <circle cx="117.5" cy="95" r="1.7" fill="#FFFFFF" opacity="0.55" />
+                <ellipse cx="160" cy="96" rx="4.6" ry="11" fill="#14120F" />
+                <circle cx="164" cy="89.5" r="3.4" fill="#FFFFFF" opacity="0.95" />
+                <circle cx="156.5" cy="103" r="1.7" fill="#FFFFFF" opacity="0.55" />
               </g>
             </>
           )}
 
           {/* ---- 鼻子 + 嘴（深色，照参考图）---- */}
           <path
-            d="M95.5 103.5 L104.5 103.5 L100 109 Z"
+            d="M135.5 112 L144.5 112 L140 117.5 Z"
             fill="#584F4B"
             stroke="#584F4B"
             strokeWidth="2.4"
             strokeLinejoin="round"
           />
           <path
-            d="M100 109.5 Q94.5 116 89 110.5"
+            d="M140 118 Q134.5 124.5 129 119"
             fill="none"
             stroke="#16130F"
             strokeWidth="2.2"
             strokeLinecap="round"
           />
           <path
-            d="M100 109.5 Q105.5 116 111 110.5"
+            d="M140 118 Q145.5 124.5 151 119"
             fill="none"
             stroke="#16130F"
             strokeWidth="2.2"
@@ -339,23 +341,24 @@ export function BentoCat() {
           />
           {/* 彩蛋时吐一下小舌头 */}
           {mood === "party" ? (
-            <path d="M96 113 h8 v2.6 a4 4 0 0 1 -8 0 z" fill="#D98A8A" />
+            <path d="M136 122 h8 v2.6 a4 4 0 0 1 -8 0 z" fill="#D98A8A" />
           ) : null}
 
-          {/* ---- 胡须 + 胡须孔。深色胡须画在奶油底上才看得见 ---- */}
+          {/* ---- 胡须 + 胡须孔。深色胡须画在奶油底上才看得见；
+              侧躺版脸在右端，胡须朝左上（大片奶油底）和右侧散开 ---- */}
           <g fill="#2A2620">
-            <circle cx="85" cy="105" r="1" />
-            <circle cx="82.5" cy="111" r="1" />
-            <circle cx="85" cy="117" r="1" />
-            <circle cx="115" cy="105" r="1" />
-            <circle cx="117.5" cy="111" r="1" />
-            <circle cx="115" cy="117" r="1" />
+            <circle cx="126" cy="112" r="1" />
+            <circle cx="124" cy="118" r="1" />
+            <circle cx="127" cy="124" r="1" />
+            <circle cx="154" cy="112" r="1" />
+            <circle cx="156" cy="118" r="1" />
+            <circle cx="153" cy="124" r="1" />
           </g>
           <g stroke="#4A4438" strokeWidth="1.7" strokeLinecap="round" opacity="0.95">
-            <path d="M72 104 Q56 98 42 100" />
-            <path d="M70 112 Q54 114 42 120" />
-            <path d="M128 104 Q144 98 158 100" />
-            <path d="M130 112 Q146 114 158 120" />
+            <path d="M126 112 Q108 104 92 100" />
+            <path d="M124 116 Q104 112 90 110" />
+            <path d="M154 112 Q172 106 192 102" />
+            <path d="M156 118 Q174 120 192 120" />
           </g>
         </g>
       </svg>

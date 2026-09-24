@@ -339,6 +339,22 @@
   animation: 0.7s ease 0s infinite normal none running typedjsBlink;
 }
 
+/* /resume 的 macOS 终端窗入场：像 app 打开那样从下往上轻轻浮起。
+   纯装饰 —— reduce 下掐掉（见文件尾部的 reduce 块），窗口照常完整可见。 */
+.resume-win {
+  animation: resume-win-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes resume-win-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ---- 我们自己的别名（老代码 / tailwind.config 里的 animate-* 用）---- */
 .animate-hello {
   animation: 3s ease 0s infinite normal none running hello;
@@ -438,7 +454,7 @@
 .cat-tail {
   animation: cat-tail 3.6s ease-in-out infinite;
   transform-box: view-box;
-  transform-origin: 142px 152px; /* 尾巴根（2026-09-24 坐姿版：藏在身体右后方） */
+  transform-origin: 30px 148px; /* 尾巴根（2026-09-24 深夜侧躺版：藏在身体左后方） */
 }
 
 /* 登录页那只：尾巴根在身体右侧、搭在框沿上，viewBox 也不同（200×146） */
@@ -462,7 +478,7 @@
 .cat-body {
   animation: cat-breathe 3.2s ease-in-out infinite;
   transform-box: view-box;
-  transform-origin: 100px 184px;
+  transform-origin: 100px 186px; /* 贴地点（2026-09-24 深夜侧躺版：肚子底 y=186） */
 }
 
 /* 登录页那只的贴地点：viewBox 200×146，屁股坐在 y=134（框沿） */
@@ -474,7 +490,7 @@
 .cat-tuft {
   animation: cat-tuft 2.8s ease-in-out infinite;
   transform-box: view-box;
-  transform-origin: 100px 40px; /* 呆毛根部（发梢在 y=23，摆动幅度别开太大） */
+  transform-origin: 140px 58px; /* 呆毛根部（侧躺版头顶，发梢在 y=41，摆幅别开太大） */
 }
 
 @keyframes cat-tuft {
@@ -838,6 +854,7 @@
   .animation-fade-in,
   .animation-fade-out,
   .typed-cursor--blink,
+  .resume-win,
   /* 终端卡点一下的扫光与输出行入场。注意这两条**只是入场**：
      掐掉之后输出行照常可见（terminal.tsx 里元素本身 opacity: 1）。 */
   .term-sweep,
