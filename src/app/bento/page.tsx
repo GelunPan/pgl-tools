@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import { BentoCard, BentoGrid } from "@/components/bento/bento-card";
+import { BentoCat } from "@/components/bento/cat";
 import { DotGrid } from "@/components/bento/dot-grid";
 import {
   ArrowUpRightIcon,
@@ -300,7 +301,10 @@ export default function BentoPage() {
                 断点跨度：base 2×2 → md 4×1 → lg 2×1。 */}
             <BentoCard className="prose z-10 col-span-2 row-span-2 max-w-full bg-gradient-to-br from-white to-amber-50 dark:prose-invert prose-h1:mb-0 dark:from-surface-1 dark:to-white/5 sm:max-lg:prose-p:my-1.5 md:col-span-4 md:row-span-1 md:max-xl:prose-p:my-2 lg:col-span-2 lg:row-span-1">
               <h1 className="relative flex items-start">
-                <span className="animation-hello -mt-12 inline-block text-5xl sm:ml-12 md:text-6xl xl:text-8xl">
+                {/* 「欢迎的巴掌」整体再放大一档（5xl→6xl / 6xl→7xl / 8xl→9xl）。
+                    同时把 -mt 从 3rem 提到 4rem 抵消多出来的高度 —— 否则 h1 会把
+                    底下三段正文往下顶，卡片要撑破。 */}
+                <span className="animation-hello -mt-16 inline-block text-6xl sm:ml-12 md:text-7xl xl:text-9xl">
                   👋
                 </span>
 
@@ -338,34 +342,15 @@ export default function BentoPage() {
               <p>网格、卡片、明暗切换都已就位，每个格子里填什么，后面再逐个长出来。</p>
             </BentoCard>
 
-            {/* ================= ② 头像 1×1 =================
-                参考站是 3D 形象；这格按小潘的意思先留着不动，只把「呼吸涟漪」升级成
-                参考站的真身：**7 层同心的 animation-breath 圆**，从外到内越来越白、
-                延迟依次错开 0.08s，靠 `alternate + scale:0.8` 来回荡出一圈圈光晕。
-                （旧版是 4 层静止透明度，没有呼吸，所以看着像射击靶。） */}
-            <BentoCard className="bg-gradient-to-b from-blue-300 to-blue-50 p-0 dark:from-blue-400/60">
-              <div className="absolute inset-0 overflow-clip">
-                <div className="absolute inset-0 translate-y-4">
-                  {[
-                    { inset: "-3rem", alpha: "bg-white/[0.125]", delay: "-1.6s" },
-                    { inset: "-1.5rem", alpha: "bg-white/25", delay: "-1.52s" },
-                    { inset: "0px", alpha: "bg-white/[0.375]", delay: "-1.44s" },
-                    { inset: "1.5rem", alpha: "bg-white/50", delay: "-1.36s" },
-                    { inset: "3rem", alpha: "bg-white/[0.625]", delay: "-1.28s" },
-                    { inset: "4.5rem", alpha: "bg-white/75", delay: "-1.2s" },
-                    { inset: "6rem", alpha: "bg-white/[0.875]", delay: "-1.12s" },
-                  ].map((r) => (
-                    <i
-                      key={r.inset}
-                      className={`animation-breath absolute rounded-full shadow-bento ${r.alpha}`}
-                      style={{ inset: r.inset, animationDelay: r.delay }}
-                    />
-                  ))}
-                </div>
-                <span className="absolute inset-x-0 bottom-0 z-10 flex justify-center text-[80px] leading-[0.85] xl:text-[96px]">
-                  🧑‍💻
-                </span>
-              </div>
+            {/* ================= ② 猫咪 1×1（彩蛋） =================
+                参考站这格是博主的 3D 形象。这里换成一只**可以撸的猫**：
+                视线跟着鼠标跑、点一下眯眼笑并冒出「喵～」，连点 7 次触发彩蛋。
+                实现全在 components/bento/cat.tsx（那儿写了四条硬约束）。
+                背景是**奶油米色**（照小潘给的黑猫参考图取的色）—— 注意这里**没有**
+                `dark:` 分支：黑猫在深色底上会糊，两套主题都得是这层米色。
+                猫才是主角，所以卡上只留一层会呼吸的暖光（`.cat-glow`）。 */}
+            <BentoCard className="overflow-clip bg-gradient-to-b from-[#F8F4EB] to-[#E9E1D2] p-0">
+              <BentoCat />
             </BentoCard>
 
             {/* ================= ③ SKILLS 挂钩板 1×2 =================

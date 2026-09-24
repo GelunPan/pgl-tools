@@ -14,9 +14,9 @@
 | 页面 | 路径 | 说明 |
 | --- | --- | --- |
 | 首页 | `/` | 自动跳转到登录页 |
-| 登录 | `/login` | 邮箱 + 密码登录，读取 `localStorage` 中已注册用户；成功后走过渡动效进入工具箱主页 |
+| 登录 | `/login` | 邮箱 + 密码登录，读取 `localStorage` 中已注册用户；成功后走过渡动效进入工具箱主页。**邮箱框上还趴了一只猫**：点它会眯眼笑，**连点 5 下直接跳过登录进 `/bento`**（彩蛋，见下） |
 | 注册 | `/signup` | 选择身份（新手 / 高手）、姓名、邮箱、密码，写入 `localStorage`；成功后跳转登录页 |
-| **工具箱主页** | **`/bento`** | **登录后的落点**。近黑底 Bento 网格（4 列 × 6 行 = 16 个模块），**排布与参考站 `zhangyu.dev` 逐格相同**；进页面时所有模块**从屏幕四周汇聚飞入**；点日月模块，整站一起翻成白色（1000ms 过渡） |
+| **工具箱主页** | **`/bento`** | **登录后的落点**。近黑底 Bento 网格（4 列 × 6 行 = 16 个模块），**排布与参考站 `zhangyu.dev` 逐格相同**；进页面时所有模块**从屏幕四周汇聚飞入**；点日月模块，整站一起翻成白色（1000ms 过渡）。**角落里还养了一只会跟着鼠标看的猫**（彩蛋，见下） |
 | 欢迎（旧） | `/welcome` | 早期的测试页，展示会话信息。已不再是登录落点，保留着 |
 | 404 | 任意未知路径 | GitHub Pages 会自动使用构建出的 `404.html` |
 
@@ -42,6 +42,7 @@
 
   | 模块 | 动效 |
   | --- | --- |
+  | **黑猫**（第 2 格） | **一只可以撸的黑猫**（本项目自己加的彩蛋，参考站没有）：照小潘给的写实风黑猫参考图做的 —— **暖调炭黑毛 `#302D26` + 黄绿眼 `#C6D74F`**、短圆耳、深色鼻嘴胡须（**没有**项圈/铃铛/腮红/白肚子），背景是参考图那种**奶油米色**。眼睛**跟着鼠标转**，鼠标在页面任何位置都盯得住；点一下 → 眯眼笑 + 冒气泡（文案按次数轮换）；**1.6 秒内连点 7 下** → 爱心/星星/爪印**分两轮齐飞** + 转圈跳 + 吐舌头 + 「喵喵喵！被你发现了 🎉」。尾巴、头顶呆毛、一层暖光一直在动。**彩蛋有 0.5s 保护期**：手快补点不会把它点没 |
   | 页头胶囊导航 | 白块**滑动**指示器（1000ms 缓动），不是「旧高亮消失、新的出现」 |
   | SKILLS 挂钩板 | **真的 2D 刚体模拟**：16 个技术徽章从卡片上方逐个掉落、被 13 个挂钩弹开、堆在底部（可点左上角按钮重来） |
   | 终端 | 打字机循环（`vim` → `cat resume` → `ls tools`），停手时光标硬切闪烁 |
@@ -54,6 +55,27 @@
 
   另：`prefers-reduced-motion` 下有**整条降级路径**（不做飞入、不做物理模拟、动画全静态），
   不是简单地把动画关掉就完事 —— 细节见 `PROJECT.md` 4.7.8 末尾。
+- **两只可以撸的黑猫**（本项目自己加的彩蛋，参考站没有）—— 都是手写 SVG，不是图片也不是 emoji，
+  所以眼睛和尾巴能各自单独动。撸猫的状态机（连点计数 / 表情时长 / 气泡轮换 / **彩蛋保护期**）
+  两只共用一份：`src/hooks/use-pet.ts`。
+
+  | | ① 工具箱格那只 | ② 登录页那只 |
+  | --- | --- | --- |
+  | 位置 | `/bento` 网格**第 2 格**（源码里的第 2 张卡，原「头像」格） | **`/login` 邮箱输入框的顶沿上** |
+  | 姿势 | **趴卧**（身体贴地、四爪朝前、抬头看人） | **坐着**（照参考图那副坐相，尾巴搭在框边） |
+  | 配色 | **黑猫**：暖调炭黑 `#302D26` + **黄绿眼** `#C6D74F` | 同一套色板 + `.cat-halo` 柔光底 |
+  | 眼睛 | 跟着鼠标转（全页面范围） | 同样跟着鼠标转 |
+  | 点一下 | 眯眼笑 + 冒气泡 | 眯眼笑 + 冒气泡 |
+  | **彩蛋** | **连点 7 下** → 爱心/星星/爪印两轮齐飞 + 转圈跳 + 吐舌头 | **连点 5 下** → **跳过登录直接进 `/bento`** |
+
+  ② 号那只**只压住输入框顶沿 6px**，占位文字照常看得见、框子照常点得着
+  （验收脚本会真的去点框子正中，断言焦点落在 `#email` 上）；
+  旁边那句「🐾 这么可爱的小猫，谁能忍住不撸一下？」就是它的暗示。
+  ⚠️ 黑猫 + 两个深色底＝要额外兜对比度：眯眼笑用**黄绿**笔画、第 2 格卡片底色改成
+  **奶油米色**（刻意不留 `dark:` 分支）、登录页那只垫一层 `.cat-halo` 柔光，
+  另外 `.cat-svg` 必须有 `position: relative; z-index: 1`（否则柔光会盖在猫脸上）。
+  四处都不能回退（见 `PROJECT.md` 4.7.16 与硬约束第 53 条）。
+
 - 密码显示 / 隐藏切换、表单实时校验（Zod + React Hook Form）
 - 加载态（"正在登录…"）、Toast 提示、**全站默认夜间主题**（可切换）
 - 响应式布局：小屏隐藏角色插画，仅保留表单
@@ -207,14 +229,14 @@ NEXT_PUBLIC_BASE_PATH="/<仓库名>" npm run build
 | 想改什么 | 文件 | 位置 |
 | --- | --- | --- |
 | 浏览器标签标题 / PWA 名称 | `src/app/layout.tsx` | `metadata.title` |
-| 登录页标题「欢迎回来！」 | `src/app/(auth)/login/page.tsx` | 第 204 行 |
+| 登录页标题「欢迎回来！」 | `src/app/(auth)/login/page.tsx` | 第 247 行 |
 | 登录页副标题 | 同上 | 第 207 行 |
 | 注册页副标题「加入我们吧！」 | `src/app/(auth)/signup/page.tsx` | 第 180 行（大标题「创建账号」在第 177 行） |
 | 角色选项「新手 / 高手」 | 同上 | 第 206、219 行 |
 | 姓名输入框占位文字 | 同上 | 第 233 行 |
 | 底部小字「天天开心」 | 登录页 / 注册页 | 172 行 / 150 行 |
 | 欢迎页文案 | `src/app/welcome/page.tsx` | 第 76、83 行 |
-| **登录后落在哪一页** | `src/app/(auth)/login/page.tsx` | 第 309 行 `onComplete={() => router.push("/bento")}` |
+| **登录后落在哪一页** | `src/app/(auth)/login/page.tsx` | 第 366 行 `onComplete={() => router.push("/bento")}`（**连点小猫 5 下的彩蛋走的是同一条链路**，只是幕布原点换成猫的位置，见 `handleCatSkip`） |
 | 工具箱页首帧黑幕 | `src/app/bento/page.tsx` | `bg-black` 那层，**必须与 `VEIL_END_COLOR` 一致** |
 | 汇聚入场的速度 / 错峰 | `src/hooks/use-converge-in.ts` | 顶部常量 `FLY_DURATION` / `FLY_BASE_DELAY` / `STAGGER_STEP` / `TRAVEL_RATIO` / `TRAVEL_MAX_RATIO`。⚠️ `FLY_DURATION` 必须等于 `globals.css` 里 `converge-in` 的 `animation-duration`（900ms） |
 | 登录成功的过渡动效 | `src/components/ui/color-veil.tsx` + `globals.css` 里的 keyframes | 详见 PROJECT.md 4.6 |
@@ -230,6 +252,8 @@ NEXT_PUBLIC_BASE_PATH="/<仓库名>" npm run build
 | 日月切换动效 | `src/components/bento/theme-toggle.tsx` | 详见 PROJECT.md 4.7.5。⚠️ 里面的 `<button>` 不能加 `relative` |
 | 挂钩板物理参数 / 徽章列表 | `src/components/bento/pegboard.tsx` | `BADGES` / `PEGS` / `GRAVITY` / `DROP_INTERVAL`。加徽章要同时往 `public/brands/` 放 logo |
 | 终端话术 | `src/components/bento/terminal.tsx` | `LINES` |
+| **两只猫**（毛色 / 连点次数 / 瞳孔幅度 / 彩蛋文案） | `src/components/bento/cat.tsx`（**趴卧**）、`src/components/ui/login-cat.tsx`（**坐姿**）、`src/hooks/use-pet.ts`（共用逻辑） | 连点次数 / 判定窗口 / **彩蛋保护期**是传给 `usePetSequence()` 的参数（`eggCount` / `windowMs` / `eggCooldownMs`）；文案在两个文件顶部的 `HAPPY_TEXTS` 与 `eggText`；毛色（暖调炭黑 `#302D26` + 黄绿眼 `#C6D74F`）都写在各自的 SVG 里。尾巴摆幅 / 呼吸 / 呆毛 / 暖光在 `globals.css` 的 `@keyframes cat-tail` / `cat-breathe` / `cat-tuft` / `cat-glow`。⚠️ `cat-party` 的时长必须与 `partyMs` 对齐（见 PROJECT.md 硬约束第 25 条） |
+| 登录页那只猫的位置 / 大小 / 暗示文案 | `src/components/ui/login-cat.tsx` + `src/app/(auth)/login/page.tsx` | 猫是 `left-[8%] top-[-70px] h-[76px] w-[104px]`（**只压框子 6px**，不能随便挪 —— 输入框上方只剩 ~56px，改之前先跑 `measure-login2.js`），暗示是登录页里那个 `.cat-hint` 的 `<span>` |
 | 沙丘起伏速度 / 颜色 | `src/components/bento/wave-canvas.tsx` | `t += 0.006` 是速度；颜色读的是 class 里的 `fill-ink-1 dark:fill-surface-1` |
 | 点阵背景 | `src/components/bento/dot-grid.tsx` | 只有日间显示（`dark:hidden`） |
 | 字体 | `public/fonts/` + `src/lib/fonts.ts` | **自托管**，`@font-face` 由 `fonts.ts` 生成后在 `layout.tsx` 用 `<style>` 注入。⚠️ **不要改成 `next/font/google`，也不要加任何外部字体 `<link>`** —— 外部样式表是渲染阻塞的，国内网络下会把首屏挂成黑屏（见 `PROJECT.md` 8.7） |
@@ -275,11 +299,11 @@ npm run build            # 2. 可选：确认能正常构建
 │   │   ├── welcome/page.tsx       # 欢迎页（旧测试页，已非落点）
 │   │   ├── page.tsx               # 首页 → 跳转 /login
 │   │   ├── not-found.tsx          # 404
-│   │   ├── layout.tsx             # 根布局（主题 + Toast + 三套 Google Fonts）
+│   │   ├── layout.tsx             # 根布局（主题 + Toast + 注入自托管 @font-face）
 │   │   ├── globals.css            # 设计令牌（shadcn HSL + Bento RGB）+ 全部 keyframes
 │   │   └── manifest.ts            # PWA manifest
 │   ├── components/
-│   │   ├── ui/                    # 仅保留登录注册页用到的 10 个组件（含 color-veil 过渡幕布）
+│   │   ├── ui/                    # 仅保留登录注册页用到的组件（含 color-veil 过渡幕布、login-cat 坐在邮箱框沿上的黑猫）
 │   │   ├── bento/
 │   │   │   ├── bento-card.tsx     # BentoGrid + BentoCard（1px 渐变细边）
 │   │   │   ├── site-header.tsx    # 三栏页头 + 胶囊导航滑动指示器
@@ -288,9 +312,10 @@ npm run build            # 2. 可选：确认能正常构建
 │   │   │   ├── terminal.tsx       # 终端打字机
 │   │   │   ├── wave-canvas.tsx    # 沙丘 canvas + 反色文字
 │   │   │   ├── theme-toggle.tsx   # 日月主题切换
+│   │   │   ├── cat.tsx            # 第 2 格那只**趴卧**的黑猫（点它 / 连点 7 次有彩蛋）
 │   │   │   └── icons.tsx          # 内联 SVG 图标（tabler 路径）
 │   │   └── theme-provider.tsx
-│   ├── hooks/                     # use-toast / use-bento-theme / use-converge-in
+│   ├── hooks/                     # use-toast / use-bento-theme / use-converge-in / use-pet（两只猫共用的撸猫状态机）
 │   ├── lib/                       # utils.ts（cn）/ asset.ts（basePath 资源路径）/ fonts.ts（@font-face）
 │   └── styles/responsive-touch.css
 ├── public/fonts/*.woff2           # 自托管字体（10 个，latin 子集）

@@ -369,6 +369,357 @@
 }
 
 /* ------------------------------------------------------------------
+   BentoCat —— 第 2 格（个人展示格）里的那只猫（彩蛋互动）
+
+   👁 视线跟随：瞳孔位移由 --gaze-x / --gaze-y 驱动，值由 cat.tsx 在
+      pointermove（rAF 节流）里**直接写到外层 DOM**，不走 state ——
+      每帧 setState 会让整张卡（3 层涟漪 + 整只 SVG）重渲染，太浪费。
+
+   ⚠️ SVG 元素上的 CSS transform 用**用户单位**：--gaze-x 写 3.6px，在
+      viewBox 200 的坐标系里就是移动 3.6 个单位（约显示尺寸的 1.8%）。
+   ⚠️ 带「旋转 / 缩放」的动画必须显式写 `transform-box: view-box`，
+      否则 `transform-origin` 的 px 会被当成「元素自身包围盒」的坐标，
+      viewBox 坐标填进去会让尾巴整条甩飞。
+   ------------------------------------------------------------------ */
+.cat-svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+  /* 🔴 必须有：绝对定位的柔光/光晕（`.cat-glow` / `.cat-halo`）在 paint order 上
+     会盖在**静态**的 svg 上面 —— 白雾糊在猫脸上，炭黑猫会被冲成灰猫。
+     给 svg 一个 z-index 就把它抬回最上层（气泡 z20 / 特效 z15 仍在它之上）。 */
+  position: relative;
+  z-index: 1;
+}
+
+/* 瞳孔跟随。translate 与 transform-origin 无关，所以这里不需要 transform-box */
+.cat-eye-gaze {
+  transform: translate(var(--gaze-x, 0px), var(--gaze-y, 0px));
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 尾巴：绕着根部摆。
+   ⚠️ 尾巴挂在 `.cat-body` **里面**，所以彩蛋时身体跳、尾巴根跟着跳，不会脱开；
+      这里这层 rotate 是叠在身体位移之上的第二个 transform。
+      原点 = 尾巴根（第 2 格那只的尾巴从身体右侧绕出来）。 */
+.cat-tail {
+  animation: cat-tail 3.6s ease-in-out infinite;
+  transform-box: view-box;
+  transform-origin: 148px 162px;
+}
+
+/* 登录页那只：尾巴根在身体右侧、搭在框沿上，viewBox 也不同（200×146） */
+.cat-tail-lie {
+  animation-duration: 3.4s;
+  transform-origin: 114px 128px;
+}
+
+@keyframes cat-tail {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+
+/* 身体呼吸。幅度必须小 —— 2% 就够了，再大就像在蹦迪。
+   transform-origin 取「贴地点」，放大时才是往上长而不是往四周涨。 */
+.cat-body {
+  animation: cat-breathe 3.2s ease-in-out infinite;
+  transform-box: view-box;
+  transform-origin: 100px 184px;
+}
+
+/* 登录页那只的贴地点：viewBox 200×146，屁股坐在 y=134（框沿） */
+.cat-body-lie {
+  transform-origin: 78px 134px;
+}
+
+/* 头顶那撮呆毛：慢慢左右倒。原点是呆毛的根（贴在头顶那一头） */
+.cat-tuft {
+  animation: cat-tuft 2.8s ease-in-out infinite;
+  transform-box: view-box;
+  transform-origin: 100px 58px; /* 呆毛根部（发梢在 y=43，摆动幅度别开太大） */
+}
+
+@keyframes cat-tuft {
+  0%,
+  100% {
+    transform: rotate(-7deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+@keyframes cat-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.022);
+  }
+}
+
+/* 彩蛋：连点 7 次后整只猫跳两下 + 左右晃。
+   播 2 次 × 1.5s = 3.0s，与 cat.tsx 里的 partyMs 对齐。 */
+[data-mood="party"] .cat-body {
+  animation: cat-party 1.5s cubic-bezier(0.34, 1.56, 0.64, 1) 2;
+}
+
+@keyframes cat-party {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  20% {
+    transform: translateY(-18px) rotate(-12deg);
+  }
+  45% {
+    transform: translateY(0) rotate(12deg);
+  }
+  68% {
+    transform: translateY(-9px) rotate(-6deg);
+  }
+  86% {
+    transform: translateY(0) rotate(3deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+/* 气泡。水平居中用独立的 `translate` 属性，把 `transform` 整个让给入场动画 ——
+   两者互不打架（否则 translateX(-50%) 会被 keyframes 里的 transform 覆盖掉）。 */
+.cat-bubble {
+  animation: cat-bubble-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  background: #30db5b;
+  border-radius: 0.9rem;
+  color: #fff;
+  font-size: 0.8125rem;
+  left: 50%;
+  line-height: 1.2;
+  padding: 0.3rem 0.7rem;
+  pointer-events: none;
+  position: absolute;
+  top: 0.55rem;
+  translate: -50% 0;
+  white-space: nowrap;
+  z-index: 20;
+}
+
+.cat-bubble::after {
+  background: inherit;
+  bottom: -3px;
+  content: "";
+  height: 9px;
+  left: 50%;
+  position: absolute;
+  rotate: 45deg;
+  translate: -50% 0;
+  width: 9px;
+}
+
+/* 彩蛋气泡：换个暖色，和普通的「喵～」区分开 */
+.cat-bubble[data-egg] {
+  background: #f7834f;
+  font-weight: 600;
+}
+
+/* 气泡锚点。默认居中（坐姿那只的头顶正上方就够用）；
+   趴姿那只的头偏右，得把气泡挪到头上面去。 */
+.cat-bubble[data-anchor="head"] {
+  left: 39%;
+}
+
+/* 黑猫的暖柔光底。登录页是 `bg-background`，暗色下是 hsl(20 14.3% 4.1%) ≈ 近黑 ——
+   `#302D26` 的炭黑猫直接坐上去就是一团糊，剪影全靠这轮「月光」立住。
+   用**暖米色**而不是纯白：它要和奶油底的猫同一族色温，纯白会显得发冷。
+   亮色下它是白底上的一层暖光，肉眼几乎看不出来，无害。
+   （第 2 格那只不用它 —— 那张卡本身就是奶油米色，对比度够。） */
+.cat-halo {
+  background: radial-gradient(
+    closest-side,
+    rgba(246, 238, 220, 0.3),
+    rgba(246, 238, 220, 0.11) 55%,
+    transparent 100%
+  );
+  border-radius: 50%;
+  inset: -14% -8% -8% -10%;
+  pointer-events: none;
+  position: absolute;
+}
+
+/* 第 2 格那张卡上的暖光（会呼吸）。奶油底上的白光本来就淡，
+   它只是让整张卡「有空气」；别调亮 —— 猫才是主角。 */
+.cat-glow {
+  animation: cat-glow 6s ease-in-out infinite;
+  background: radial-gradient(
+    circle at 50% 46%,
+    rgba(255, 255, 255, 0.55),
+    rgba(255, 255, 255, 0.16) 52%,
+    transparent 70%
+  );
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+@keyframes cat-glow {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+/* ------------------------------------------------------------------
+   登录页那只「坐在邮箱框沿上」的猫
+
+   它是一个真按钮，坐在 h-12 胶囊输入框的**顶沿**上（只压 6px）。
+   所以：① 必须 overflow:visible，气泡/彩蛋才飞得出去；
+        ② 必须抬 z-index，压住输入框那一小条，点击才点得到它。
+   ------------------------------------------------------------------ */
+.cat-root-lie {
+  overflow: visible;
+  z-index: 20;
+}
+
+/* 框子右上方那句暗示。轻微上下浮动，专门勾人去撸 —— 纯装饰，不吃指针 */
+.cat-hint {
+  animation: cat-hint-bob 2.6s ease-in-out infinite;
+  font-size: 0.6875rem;
+  line-height: 1.1;
+  pointer-events: none;
+  user-select: none;
+}
+
+@keyframes cat-hint-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes cat-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 彩蛋特效：爱心 / 星星 / 爪印分**两轮**齐飞（第 5 个元素起是第二轮）。
+   8 个 `<i>` 的位置/延迟全部按 nth-child 写死 —— 不用随机，静态导出下才安全。
+   水平居中同样用独立的 `translate` 属性，把 `transform` 让给入场动画。 */
+.cat-fx {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 15;
+}
+
+.cat-fx i {
+  animation: cat-fx 1.4s ease-out both;
+  font-size: 1rem;
+  left: 50%;
+  line-height: 1;
+  position: absolute;
+  top: 44%;
+  translate: -50% 0;
+}
+
+/* 趴姿那只的头在右边（69%），特效得跟着头走 */
+.cat-fx[data-anchor="head"] i {
+  left: 39%;
+  top: 24%;
+}
+
+.cat-fx i:nth-child(1) {
+  --fx-x: -34px;
+  --fx-y: -64px;
+  --fx-r: -22deg;
+}
+.cat-fx i:nth-child(2) {
+  --fx-x: -4px;
+  --fx-y: -78px;
+  font-size: 1.15rem;
+  animation-delay: 0.1s;
+}
+.cat-fx i:nth-child(3) {
+  --fx-x: 32px;
+  --fx-y: -60px;
+  --fx-r: 20deg;
+  font-size: 0.95rem;
+  animation-delay: 0.2s;
+}
+.cat-fx i:nth-child(4) {
+  --fx-x: -50px;
+  --fx-y: -30px;
+  --fx-r: -40deg;
+  font-size: 0.9rem;
+  animation-delay: 0.28s;
+}
+/* ↓ 第二轮：与 cat-party 的第二次起跳同步 */
+.cat-fx i:nth-child(5) {
+  --fx-x: 12px;
+  --fx-y: -72px;
+  --fx-r: 24deg;
+  animation-delay: 1.3s;
+}
+.cat-fx i:nth-child(6) {
+  --fx-x: -20px;
+  --fx-y: -84px;
+  --fx-r: -18deg;
+  font-size: 0.95rem;
+  animation-delay: 1.4s;
+}
+.cat-fx i:nth-child(7) {
+  --fx-x: 48px;
+  --fx-y: -34px;
+  --fx-r: 45deg;
+  font-size: 0.9rem;
+  animation-delay: 1.45s;
+}
+.cat-fx i:nth-child(8) {
+  --fx-x: -38px;
+  --fx-y: -50px;
+  --fx-r: -30deg;
+  font-size: 0.9rem;
+  animation-delay: 1.5s;
+}
+
+@keyframes cat-fx {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg) scale(0.35);
+  }
+  16% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--fx-x, 0px), var(--fx-y, -60px))
+      rotate(var(--fx-r, 0deg)) scale(1.15);
+  }
+}
+
+/* ------------------------------------------------------------------
    汇聚入场（/bento 专用）
 
    登录成功后幕布已经把屏幕渐变成纯黑，进入本页时卡片仍然是不可见的。
@@ -473,5 +824,25 @@
   }
   [data-bubble="hello"] {
     opacity: 1 !important;
+  }
+
+  /* 猫：动画全停。它本体是**静态绘制**的，不依赖动画才可见（约束 2）✓
+     彩蛋特效是纯装饰，降级时干脆不出现；气泡只是淡入，掐掉动画后默认就是可见的。
+     注意 `!important` 连 `[data-mood="party"] .cat-body` 那条一起压住 —— 靠的是
+     important 而不是选择器权重，所以别把这几个类从列表里漏掉。
+     🔴 新增任何「靠动画才动」的猫零件，都必须补进这份名单。 */
+  .cat-tail,
+  .cat-tail-lie,
+  .cat-body,
+  .cat-body-lie,
+  .cat-tuft,
+  .cat-glow,
+  .cat-bubble,
+  .cat-fx i,
+  .cat-hint {
+    animation: none !important;
+  }
+  .cat-fx {
+    display: none;
   }
 }
