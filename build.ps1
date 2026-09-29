@@ -86,8 +86,16 @@ $outStash = Clear-Dir 'out' '.out-prev'
 Head '2/3 构建（next build → out\）'
 $started = Get-Date
 
-& node '.\node_modules\next\dist\bin\next' build
-$code = $LASTEXITCODE
+# ⚠️ next 会往 stderr 写警告和报错。在 $ErrorActionPreference='Stop' 下那会被当成
+#    终止错误 —— 结果是「构建失败，但一句话都看不到」。这里临时放行 stderr。
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+try {
+    & node '.\node_modules\next\dist\bin\next' build
+    $code = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = $prevEap
+}
 
 $elapsed = [Math]::Round(((Get-Date) - $started).TotalSeconds, 1)
 

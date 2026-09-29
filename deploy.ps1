@@ -78,18 +78,50 @@ function Get-HttpCode {
 function New-Buster { return [DateTime]::UtcNow.Ticks }
 
 # ------------------------------------------------------------------ git 小工具
+#
+# ⚠️ 原生命令（git / node）往 stderr 写字时，在 $ErrorActionPreference = 'Stop' 下
+#    会被当成【终止错误】——后果是「脚本默默 exit 1，什么原因都看不到」。
+#    所以所有外部命令统一走这层包装：捕获输出、显式取退出码，失败时能把话说清楚。
+function Invoke-Native {
+    param([string]$Exe, [string[]]$Arguments)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $raw  = & $Exe @Arguments 2>&1
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+    return [pscustomobject]@{
+        Text = (($raw | Out-String).Trim())
+        Code = $code
+    }
+}
+
+function Invoke-Git {
+    param([string[]]$Arguments)
+    return (Invoke-Native 'git' $Arguments)
+}
+
+# 把命令输出拆成非空行数组（统一处理 CRLF）
+function Split-Lines {
+    param([string]$Text)
+    if (-not $Text) { return @() }
+    return @($Text -split "`n" | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_ -ne '' })
+}
+
+# ls-remote 同样受 schannel 影响，统一带 openssl 后端
+function Get-RemoteHead {
+    $r = Invoke-Git @('-c', 'http.sslBackend=openssl', '-c', 'http.sslVerify=false',
+                      'ls-remote', 'origin', "refs/heads/$Branch")
+    if (-not $r.Text) { return $null }
+    return (($r.Text -split "\s+")[0]).Trim()
+}
+
 function Test-RemoteInSync {
-    $local = (& git rev-parse HEAD).Trim()
+    $local = (Invoke-Git @('rev-parse', 'HEAD')).Text
     for ($i = 1; $i -le 3; $i++) {
-        $line = $null
-        try {
-            $line = (& git -c http.sslBackend=openssl -c http.sslVerify=false ls-remote origin "refs/heads/$Branch" 2>$null |
-                     Select-Object -First 1)
-        } catch { }
-        if ($line) {
-            $remote = ($line -split "\s+")[0].Trim()
-            if ($remote -eq $local) { return $true }
-        }
+        if ((Get-RemoteHead) -eq $local) { return $true }
         Start-Sleep -Seconds 2
     }
     return $false
@@ -101,14 +133,17 @@ function Invoke-Push {
     $env:GIT_TERMINAL_PROMPT = '0'
     if ($Legacy) {
         $env:GIT_SSL_NO_VERIFY = '1'
-        & git -c http.sslBackend=openssl push origin $Branch
+        $r = Invoke-Git @('-c', 'http.sslBackend=openssl', 'push', 'origin', $Branch)
     } else {
         Remove-Item Env:GIT_SSL_NO_VERIFY -ErrorAction SilentlyContinue
-        & git push origin $Branch
+        $r = Invoke-Git @('push', 'origin', $Branch)
     }
+    $script:LastPushText = $r.Text
     # git 的退出码不能当结论：被中断时它可能非 0，但数据其实已经传完 —— 一律以远端为准
     return (Test-RemoteInSync)
 }
+
+$script:LastPushText = $null
 
 # ================================================================== 0. 前置
 Head '0/6 前置检查'
@@ -117,19 +152,21 @@ if (-not (Test-Path (Join-Path $PSScriptRoot '.git'))) {
     Die '当前目录不是 git 仓库根目录，脚本不知道要推什么。'
 }
 
-$current = (& git rev-parse --abbrev-ref HEAD).Trim()
+$current = (Invoke-Git @('rev-parse', '--abbrev-ref', 'HEAD')).Text
 if ($current -ne $Branch) {
     Die "当前分支是「$current」，而这个脚本只会推「$Branch」。先切回去再跑：git switch $Branch"
 }
 
-$dirty = @(& git status --porcelain | Where-Object { $_ -ne '' })
+$dirty = @(Split-Lines (Invoke-Git @('status', '--porcelain')).Text)
 Say ("  分支 {0} · 未提交改动 {1} 项" -f $current, $dirty.Count) 'Green'
 
 # ================================================================== 1. 类型检查
 if (-not $SkipCheck) {
     Head '1/6 类型检查'
-    & node '.\node_modules\typescript\bin\tsc' --noEmit
-    if ($LASTEXITCODE -ne 0) {
+    $r = Invoke-Native 'node' @('.\node_modules\typescript\bin\tsc', '--noEmit')
+    if ($r.Code -ne 0) {
+        Write-Host ''
+        Say $r.Text 'Red'
         Die '类型检查没过。修掉再发，或者加 -SkipCheck 硬发（流水线里那一步只是提示，不会拦）。'
     }
     Say '  ✅ 类型干净' 'Green'
@@ -149,10 +186,10 @@ if ($Build) {
 # ================================================================== 3. 提交
 Head '3/6 暂存并提交'
 
-& git add -A
-if ($LASTEXITCODE -ne 0) { Die 'git add 失败。' }
+$r = Invoke-Git @('add', '-A')
+if ($r.Code -ne 0) { Die ("git add 失败：`n" + $r.Text) }
 
-$pending = @(& git status --porcelain | Where-Object { $_ -ne '' })
+$pending = @(Split-Lines (Invoke-Git @('status', '--porcelain')).Text)
 if ($pending.Count -eq 0) {
     Say '  没有新改动，本次只做推送。' 'Yellow'
 } else {
@@ -160,19 +197,16 @@ if ($pending.Count -eq 0) {
         $Message = 'chore: 更新 ' + (Get-Date -Format 'yyyy-MM-dd HH:mm')
     }
     $pending | ForEach-Object { Step $_ }
-    & git commit -m $Message
-    if ($LASTEXITCODE -ne 0) { Die 'git commit 失败。' }
+    $r = Invoke-Git @('commit', '-m', $Message)
+    if ($r.Code -ne 0) { Die ("git commit 失败：`n" + $r.Text) }
     Say "  ✅ 已提交：$Message" 'Green'
 }
 
 # ================================================================== 4. 推送
 Head '4/6 推送到 GitHub'
 
-$localHead = (& git rev-parse HEAD).Trim()
-
-$remoteHead = (& git -c http.sslBackend=openssl -c http.sslVerify=false ls-remote origin "refs/heads/$Branch" 2>$null |
-               Select-Object -First 1)
-if ($remoteHead) { $remoteHead = ($remoteHead -split "\s+")[0].Trim() }
+$localHead  = (Invoke-Git @('rev-parse', 'HEAD')).Text
+$remoteHead = Get-RemoteHead
 
 if ($remoteHead -eq $localHead) {
     Say '  远端已经是这个提交，无需推送。' 'Yellow'
@@ -189,6 +223,10 @@ if ($remoteHead -eq $localHead) {
     } else {
         Write-Host ''
         Say '推送失败。提交已经安全地存在本地，什么都没丢。' 'Red'
+        if ($script:LastPushText) {
+            Say '  --- git 原话 ---' 'DarkGray'
+            Say ("  " + $script:LastPushText) 'DarkGray'
+        }
         Say '依次试这几件事：' 'Red'
         Say '  1) 手动跑  git push origin main  看它到底报什么' 'Red'
         Say '  2) 凭据可能过期 —— 控制面板 → 凭据管理器 → Windows 凭据，删掉 git:https://github.com 重登' 'Red'
@@ -205,7 +243,7 @@ if ($NoWatch) {
     Head '5/6 等 GitHub Actions 构建并发布'
 
     # 先看这次提交有没有资格触发流水线
-    $changed    = @(& git show --name-only --pretty=format: HEAD | Where-Object { $_ -ne '' })
+    $changed    = @(Split-Lines (Invoke-Git @('show', '--name-only', '--pretty=format:', 'HEAD')).Text)
     $deployable = @($changed | Where-Object {
             $p = $_
             -not ($IgnoredPatterns | Where-Object { $p -like $_ })
