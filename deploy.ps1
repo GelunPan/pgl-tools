@@ -158,6 +158,8 @@ if ($current -ne $Branch) {
 }
 
 $dirty = @(Split-Lines (Invoke-Git @('status', '--porcelain')).Text)
+$gitExe = (Get-Command git -ErrorAction SilentlyContinue).Source
+Say ("  git: {0}" -f $(if ($gitExe) { $gitExe } else { '❌ 没找到 git，后面必然失败' })) 'DarkGray'
 Say ("  分支 {0} · 未提交改动 {1} 项" -f $current, $dirty.Count) 'Green'
 
 # ================================================================== 1. 类型检查
@@ -218,6 +220,11 @@ if ($remoteHead -eq $localHead) {
         Say '  标准姿势没成，换 openssl 后端重试（本机对 schannel 的证书吊销检查不友好）……' 'Yellow'
         $pushed = Invoke-Push -Legacy
     }
+    if (-not $pushed) {
+        Say '  再来一次 openssl……' 'Yellow'
+        Start-Sleep -Seconds 3
+        $pushed = Invoke-Push -Legacy
+    }
     if ($pushed) {
         Say ("  ✅ 已推送 {0}" -f $localHead.Substring(0, 7)) 'Green'
     } else {
@@ -226,11 +233,16 @@ if ($remoteHead -eq $localHead) {
         if ($script:LastPushText) {
             Say '  --- git 原话 ---' 'DarkGray'
             Say ("  " + $script:LastPushText) 'DarkGray'
+        } else {
+            Say '  （git 这次一个字都没说 —— 静默失败，多半是进程被外部因素打断/拦截，' 'DarkGray'
+            Say '    而不是账号或网络本身的问题。换个终端窗口再跑一次通常就好。）' 'DarkGray'
         }
         Say '依次试这几件事：' 'Red'
         Say '  1) 手动跑  git push origin main  看它到底报什么' 'Red'
         Say '  2) 凭据可能过期 —— 控制面板 → 凭据管理器 → Windows 凭据，删掉 git:https://github.com 重登' 'Red'
         Say '  3) 仍不行就查 .workbuddy/memory/2026-09-24.md 里记的离线兜底姿势' 'Red'
+        Say '  4) 本机装了两个 Git（PortableGit / D:\TOOLS\Git）。上面已打印实际用的是哪一个，' 'Red'
+        Say '     两个的 system 配置各自独立，凭据类怪毛病要两边都查' 'Red'
         exit 1
     }
 }
