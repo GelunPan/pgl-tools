@@ -10,6 +10,12 @@ import type { NextConfig } from "next";
  * 本地构建时可通过环境变量手动指定：
  *   $env:NEXT_PUBLIC_BASE_PATH="/my-repo"; npm run build
  * GitHub Actions 工作流会自动探测仓库名并注入该变量。
+ *
+ * 两个位置的实际值都由 CI 决定，别在这里写死：
+ *   · NEXT_PUBLIC_BASE_PATH ← deploy.yml 的「Resolve basePath & site URL」步骤
+ *   · out/build.json        ← deploy.yml 构建后写入（含本次 commit SHA）
+ *     build.json 是「线上到底换没换」的探针：CI 的 verify job 与本地
+ *     deploy.ps1 都靠它判断，详见 PROJECT.md §5.3 / §5.4。
  */
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
