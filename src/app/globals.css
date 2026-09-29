@@ -629,6 +629,50 @@
 }
 
 /* ------------------------------------------------------------------
+   木木（第 2 格那只黑猫）的名字牌 与 「开门」状态
+
+   名字牌：
+   奶油米色卡上的浅褐小字，安静地待在**左上角** —— 那儿是画面里唯一一块
+   真空白（身体压在下半部、尾巴从左下绕出去、呆毛在中间偏右）。
+   ⚠️ `pointer-events: none` 不能省：名字也在按钮里面，点了它照样得能撸到猫。
+
+   开门（彩蛋演完后的 6s 窗口，见 components/bento/cat.tsx）：
+   ① 卡上那层暖光变暖、跳得快一档 —— 不用读气泡也能看出「它现在想让你点」；
+   ② 气泡换成邀请语，那句带数字比别人长，**必须允许折行**，
+      否则 140px 的手机卡会被卡片的 overflow-clip 直接切掉半句。
+   ------------------------------------------------------------------ */
+.cat-name {
+  color: #9a8a6b;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  left: 0.65rem;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  pointer-events: none;
+  position: absolute;
+  top: 0.6rem;
+  z-index: 2;
+}
+
+[data-portal] .cat-glow {
+  animation-duration: 1.6s;
+  background: radial-gradient(
+    circle at 50% 46%,
+    rgba(255, 236, 190, 0.8),
+    rgba(255, 206, 128, 0.3) 52%,
+    transparent 70%
+  );
+}
+
+.cat-bubble[data-portal] {
+  background: #6366f1;
+  font-weight: 600;
+  max-width: calc(100% - 1.2rem);
+  text-align: center;
+  white-space: normal;
+}
+
+/* ------------------------------------------------------------------
    登录页那只「坐在邮箱框沿上」的猫
 
    它是一个真按钮，坐在 h-12 胶囊输入框的**顶沿**上（只压 6px）。
@@ -767,6 +811,27 @@
       rotate(var(--fx-r, 0deg)) scale(1.15);
   }
 }
+
+/* ------------------------------------------------------------------
+   分类弱化 —— `--bento-dim`（/bento 专用，2026-09-29 加）
+
+   顶部导航点了某个分类之后，未命中的卡会挂一层模糊当「提示」。但提示只在
+   网格顶部成立：往下翻本来就是去看那些被排到后面的卡，再糊着就是添堵。
+   所以模糊强度改成跟着滚动走：
+
+       --bento-dim = 1  →  刚到网格顶部，未命中的卡 blur(3px) + opacity .8
+       --bento-dim = 0  →  已经往下翻开了，完全清晰
+
+   ⚠️ 这个变量**没有对应的 CSS 规则**：它由 `hooks/use-bento-dim.ts` 逐帧写在
+      滚动容器的 inline style 上，再由 bento-card.tsx 用
+      `blur(calc(var(--bento-dim, 1) * 3px))` 读走。之所以不复用别处：
+      连续量走 CSS 变量 → 一次 DOM 写入、零 React 重渲染（16 张卡，手机上差很多）；
+      而「是否还要挂 filter 这个属性」才交给 React 的一个布尔（见 tabs.ts）。
+
+   🔴 完全消散时 filter 属性会被整个撤掉，而不是留 `blur(0px)` —— 理由见
+      bento-card.tsx：`filter` 只要不是 none 就会新建 backdrop root，
+      ⑭ 波浪卡的 mix-blend-difference 会跟着变味。
+   ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------
    汇聚入场（/bento 专用）

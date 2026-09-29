@@ -49,11 +49,39 @@ export type BentoTabName = (typeof BENTO_TABS)[number]["name"];
 export type BentoCardType = Exclude<BentoTabName, "all">;
 
 /**
- * 当前分类。用 context 而不是逐层传 props ——
- * 参考站靠 `useParams()` 全局拿，卡片里不用写任何参数；我们等价地用 context，
- * 16 张卡就不用各自记住「自己在哪个分类里被筛」。
+ * 当前分类 + 「弱化提示是否已随滚动消散」。
+ *
+ * 用 context 而不是逐层传 props —— 参考站靠 `useParams()` 全局拿，
+ * 卡片里不用写任何参数；我们等价地用 context，16 张卡就不用各自记住
+ * 「自己在哪个分类里被筛」。
+ *
+ * ## 「消散」（2026-09-29 加，小潘点名要的）
+ *
+ * 未命中的卡本来是 `blur(3px)` + `opacity: .8` —— 那是「你筛的是这一类」
+ * 的视觉提示，**站在网格顶部时才成立**。手机上一屏只看得到三四张卡，
+ * 筛完满屏都是糊的；往下翻本来就是要看那些被排到后面的卡，再糊着纯属添堵。
+ *
+ * 所以提示改成**跟着滚动走**：滚动容器上写一个 `--bento-dim`（1 = 全弱化，
+ * 0 = 完全清晰，由 `useBentoDim` 按 scrollTop 逐帧写），卡片自己用
+ * `blur(calc(var(--bento-dim) * 3px))` 读它 —— 逐帧变化但**零 React 重渲染**。
+ *
+ * `dissolved` 只在跨过阈值时翻一次（带迟滞），它决定的是**更硬的那件事**：
+ * 完全消散后把 `filter` 整个从卡片上撤掉。🔴 不能一直挂着 `blur(0px)` ——
+ * `filter` 只要不是 `none` 就会新建一层 backdrop root，⑭ 波浪卡里那句
+ * `mix-blend-difference` 的反色会跟着变味（见 bento-card.tsx 的注释）。
+ * 顺带把 `pointer-events` 还给卡片：都看清了还不让点，说不过去。
  */
-export const BentoFilterContext = React.createContext<BentoTabName>("all");
+export type BentoFilterState = {
+  /** 当前分类 */
+  tab: BentoTabName;
+  /** 弱化提示是否已随滚动完全消散 */
+  dissolved: boolean;
+};
+
+export const BentoFilterContext = React.createContext<BentoFilterState>({
+  tab: "all",
+  dissolved: false,
+});
 
 /** 命中判定：`all` 或未分类的卡片永远命中（参考站的 `!tab || c`） */
 export function isCardMatched(

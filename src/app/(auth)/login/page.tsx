@@ -137,7 +137,7 @@ export default function LoginPage() {
   };
 
   /**
-   * 彩蛋：连点趴在邮箱框上那只猫 5 下 —— 跳过登录，直接进工具箱主页。
+   * 彩蛋：连点趴在邮箱框上那只猫（木木）5 下 —— 跳过登录，直接进工具箱主页。
    *
    * 走的是和正常登录**完全同一条收尾链路**：先写会话、再从猫的位置把幕布铺开，
    * 由 ColorVeil 的 onComplete 去跳 /bento。所以「蓝→黑→新页面浮现」那套无缝衔接
@@ -145,6 +145,9 @@ export default function LoginPage() {
    *
    * 唯一的区别：先等 1.1s，让彩蛋（爱心/星星/爪印 + 转圈跳）演完小半截再铺幕布，
    * 不然点完立刻就黑屏，等于把彩蛋吃掉了。
+   *
+   * ⚠️ 工具箱主页那只（`components/bento/cat.tsx`）是**反过来**的：它的彩蛋纯表演，
+   *    所以门开在彩蛋之后、再点一下才走（那边注释里写了为什么不能一样）。
    */
   const catSkippedRef = useRef(false);
   const handleCatSkip = useCallback(
@@ -169,8 +172,8 @@ export default function LoginPage() {
       }
 
       toast({
-        title: "🐾 猫咪通道已开启",
-        description: "看在你撸得这么认真的份上，直接带你进去～",
+        title: "🐾 木木带你进去了",
+        description: "看在你撸得这么认真的份上，直接带你进工具箱～",
       });
 
       window.setTimeout(() => setVeil(origin), 1100);
@@ -254,14 +257,16 @@ export default function LoginPage() {
           {/* Login Form */}
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             <div className="space-y-2">
-              {/* 标签行右端是那只猫的「暗示」——正好落在它的斜上方。
-                  这样安排是为了不额外占竖直空间：登录卡片本来就顶得很紧。 */}
+              {/* 标签行右端是猫的「暗示」——正好落在它的斜上方。
+                  这样安排是为了不额外占竖直空间：登录卡片本来就顶得很紧。
+                  ⚠️ 这句在 verify-cat.js 的 B2 里被断言过位置（在框顶上方、在猫右侧），
+                     改文案时别把它撑宽到压住猫（`.cat-hint` 是 nowrap 的短句）。 */}
               <div className="flex items-end justify-between gap-3">
                 <Label htmlFor="email" className="text-sm font-medium">
                   邮箱
                 </Label>
                 <span className="cat-hint text-muted-foreground">
-                  🐾 这么可爱的小猫，谁能忍住不撸一下？
+                  🐾 木木在框沿上蹲着呢，撸一把？
                 </span>
               </div>
               <div className="relative">
@@ -276,7 +281,7 @@ export default function LoginPage() {
                   className="h-12 bg-background border-border/60 focus:border-primary"
                 />
                 {/* 趴在邮箱框上沿的猫（只压住约 3px，占位文字完全露得出来）。
-                    连点 5 下 = 跳过登录进 /bento，见 handleCatSkip。 */}
+                    它叫木木，和工具箱主页那只同名同色板。连点 5 下 = 跳过登录进 /bento。 */}
                 <LoginCat onSkip={handleCatSkip} disabled={!!veil || isLoading} />
               </div>
               {form.formState.errors.email && (

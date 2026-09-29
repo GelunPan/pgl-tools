@@ -168,13 +168,13 @@ careercompass-main/
     │   │   ├── terminal.tsx        ← ★ 假终端（打字机循环 + **点一下真执行**，见 4.7.11）
     │   │   ├── wave-canvas.tsx     ← ★ 沙丘 canvas + mix-blend 反色文字（见 4.7.12）
     │   │   ├── theme-toggle.tsx    ← ★ 日月切换动效（见 4.7.5）
-    │   │   ├── cat.tsx             ← ★ 第 2 格那只**侧躺**的黑猫（视线跟随 + 连点彩蛋，见 4.7.16）
+    │   │   ├── cat.tsx             ← ★ 第 2 格那只**侧躺**的黑猫「木木」（视线跟随 + 连点彩蛋 + 白幕传送门，见 4.7.16）
     │   │   └── icons.tsx           ← 内联 SVG 小图标（tabler 路径，2px 描边；见 4.7.14）
     │   ├── resume/
     │   │   └── terminal-session.tsx ← ★ /resume 的 macOS 终端本体（客户端组件：三灯窗口 + 打字机三积木，见 4.7.11）
     │   └── ui/
     │       ├── animated-characters.tsx        ← ★ 四个卡通角色（SVG + 状态动画）
-    │       ├── login-cat.tsx                  ← ★ 登录页**坐在**邮箱框沿上那只黑猫（见 4.7.16）
+    │       ├── login-cat.tsx                  ← ★ 登录页**坐在**邮箱框沿上那只黑猫「木木」（见 4.7.16）
     │       ├── interactive-hover-button.tsx   ← ★ 悬停填充动画按钮
     │       ├── color-veil.tsx                 ← ★ 登录成功的全屏色幕过渡（见 4.6）
     │       ├── button.tsx  input.tsx  label.tsx
@@ -186,6 +186,7 @@ careercompass-main/
     │   ├── use-bento-theme.ts      ← bento 页主题薄封装（见 4.7.4）
     │   ├── use-pet.ts              ← ★ 两只猫**共用**的撸猫状态机（连点/彩蛋/保护期，见 4.7.16）
     │   ├── use-converge-in.ts      ← ★ 汇聚入场的测量与阶段机（见 4.7.8）
+    │   ├── use-bento-dim.ts        ← ★ 分类弱化的连续量 + 回顶命令（写 --bento-dim，见 4.7.9）
     │   └── use-flip.ts             ← ★ 分类切换时 16 张卡的 FLIP 位移补间（见 4.7.9 末尾）
     ├── lib/
     │   ├── utils.ts                ← cn()：clsx + tailwind-merge
@@ -585,7 +586,7 @@ xl:auto-rows-[280px] xl:grid-cols-[repeat(4,280px)] xl:gap-8 xl:p-12
 | # | 跨度（xl） | 模块 | 关键实现 |
 |---|---|---|---|
 | 0 | `col-span-2` | 主介绍 | `prose` + 渐变底；👋 挥手（`animation-hello`）+ 两个接力气泡；**12 条** |
-| 1 | `1×1` | **黑猫（彩蛋）** | 手写 SVG **大头坐姿黑猫**（照小潘的第二张参考图：暖调炭黑毛 `#302D26` + **超大黄绿眼** `#C6D74F`（占半张脸）+ 短圆耳 + 圆润小墩子身体 + 尾巴在身前勾个小弯；**无项圈/铃铛/腮红/白肚子**）：视线跟随鼠标、点一下眯眼笑、**连点 7 次触发彩蛋**（爱心/星星/爪印两轮齐飞）；卡片底色**奶油米色** `#F8F4EB → #E9E1D2`（刻意不留 `dark:` 分支）；**见 4.7.16** |
+| 1 | `1×1` | **黑猫「木木」（彩蛋）** | 手写 SVG **侧躺黑猫**（暖调炭黑毛 `#302D26` + **大黄绿眼** `#C6D74F` + 大圆瞳孔 + 短圆耳 + 横面包身体 + 头在右端支起 + 尾巴左后卷勾；**无项圈/铃铛/腮红/白肚子**）：视线跟随鼠标、点一下眯眼笑、**连点 7 次触发彩蛋**（爱心/星星/爪印两轮齐飞）→ 保护期过后**门开 6s，再点一下 → 白幕铺开跳 2048game.com**；左上角有 `.cat-name` 名字牌「木木」；卡片底色**奶油米色** `#F8F4EB → #E9E1D2`（刻意不留 `dark:` 分支）；**见 4.7.16** |
 | 2 | `row-span-2` | SKILLS 挂钩板 | 13 个挂钩 + 16 个徽章的重力模拟；右上角折角红丝带；`!p-0`；**13 条** |
 | 3 | `col-span-2 row-span-2` | Pinned | `bg-paper` 方格纸 + 6 张黄便签（2 列 × 3 行，`font-handwriting`）；**需 `flex flex-col`** |
 | 4 | `1×1` | 字体预览 | 5 列 × 6 行字形矩阵 + 中央 T—T 开关，`group-hover:rotate-[360deg]` |
@@ -903,6 +904,8 @@ CSS 里也有一条 `[data-converge] [data-bento-card] { opacity: 1 !important; 
 1. **每张卡拿自己的 `data-type` 跟当前 tab 比一比**，命中者 `order: 0`、
    未命中者 `order: 1` —— CSS grid 的 `grid-flow-row-dense` 会自动把命中卡**排到最前面**。
    未命中卡同时吃 `blur(3px)` + `opacity: .8` + `pointer-events: none`（弱化但不消失）。
+   ⚠️ **2026-09-29 起这三样不是恒定的**：那层弱化只在**网格顶部**成立，往下翻会渐渐散尽
+   （见下面那节「弱化提示随滚动消散」）。
 2. **FLIP 补间**（`hooks/use-flip.ts`，从参考站 chunk 里挖出的原文移植）：
    `order` 变化会让网格瞬间重排 —— 浏览器**不会**为 grid 位置变化做过渡。
    FLIP 的做法：重排**前**量一遍每张卡的 `getBoundingClientRect()`（First），
@@ -925,10 +928,11 @@ CSS 里也有一条 `[data-converge] [data-bento-card] { opacity: 1 !important; 
 | 件 | 文件 |
 |---|---|
 | 分类定义 / 命中判定 / 筛选 context | `components/bento/tabs.ts`（`BENTO_TABS` / `isCardMatched` / `BentoFilterContext`） |
-| FLIP 补间 | `hooks/use-flip.ts`（`useFlip(ref, [active], { duration: 700 })`） |
+| FLIP 补间 | `hooks/use-flip.ts`（`useFlip([active], { duration: 700 })`） |
 | 卡片侧（order / blur / opacity / dataType） | `components/bento/bento-card.tsx` 的 `BentoCard` |
-| 网格侧（把 tab 塞进 context） | `BentoGrid` 的 `filterTab` prop |
-| 导航（受控 + 全部 + 指示器） | `site-header.tsx`，`active`/`onChange` 由 `bento/page.tsx` 持有 |
+| 网格侧（把 tab + dissolved 塞进 context） | `BentoGrid` 的 `filterTab` / `dissolved` prop |
+| 导航（受控 + 全部 + 指示器） | `site-header.tsx`，`active`/`onChange`/`onHome` 由 `bento/page.tsx` 持有 |
+| 回顶 + 弱化消散 | `hooks/use-bento-dim.ts`（`--bento-dim` / `scrollToTop`） |
 
 > 🔴 **16 张卡都要挂 `dataType`**（`bento/page.tsx`，12 条语句覆盖 16 张 ——
 > ⑨~⑬ 是一个 map）。没挂的卡视为「永远命中」（`isCardMatched` 对 `undefined` 返回 true），
@@ -941,6 +945,44 @@ CSS 里也有一条 `[data-converge] [data-bento-card] { opacity: 1 !important; 
 未命中 9 张 `blur(3px)+opacity .8`、16 张卡位置全变、指示器中心与目标 `<li>` 中心
 重合（740 = 740）；`verify-flip-midframe.js` 连续采样 19 帧，其中 **16 帧带非零
 transform**（起步 `matrix(1,0,0,1,-624,-624)` → 缓动归位）—— 证明是补间不是瞬移 ✅
+
+##### ★ 2026-09-29：点分类带着视口回顶 + 弱化提示随滚动散尽（小潘在手机上发现的）
+
+**症状**（小潘原话）：「手机端点击其他模块后，它虽然会按要求调换位置，但是划到下面
+后不会自动弹回顶部，然后整个页面又会自动模糊。」
+
+两件事叠在一起：① 卡片重排了、**视口没跟着回顶**，筛出来的那批卡在屏幕上方看不见；
+② 手机一屏只装三四张卡，停在半山腰看到的**全是被排到后面、糊着的那批**——
+所以「整个页面都在模糊」。
+
+**改法（两件一起做，少一件都不成立）：**
+
+| 行为 | 实现 |
+|---|---|
+| 点分类 → 卡片重排 **+ 视口平滑回顶** | `bento/page.tsx` 的 `handleTabChange` 里调 `scrollToTop()`（滚的是那层 `overflow-y-auto`，不是 window —— 本页 `html/body` 是 `overflow:hidden`） |
+| **点自己那个分类 = 完全无反应** | 同一个回调开头 `if (next === tab) return`。⚠️ 不能只靠 `setTab(同一个值)`：React 确实不会重渲染，但 `scrollToTop()` 是命令式的，照样会把人从半山腰拽回顶部 —— 手滑点一下当前分类就被弹走，像页面出毛病了 |
+| 点左上角 logo → 回顶（不跳转、不重载） | `SiteHeader` 新增 `onHome`；logo 仍是 `<a href="/bento">`，但**有 `onHome` 时才 `preventDefault`**（以后这页头若被别处复用，不会莫名其妙「点了没反应」） |
+| 往下翻 → 未命中卡的模糊**渐渐散尽** | `hooks/use-bento-dim.ts` 按 `scrollTop` 往滚动容器写 `--bento-dim`（1→0），卡片用 `filter: blur(calc(var(--bento-dim, 1) * 3px))` + `opacity: calc(1 - var(--bento-dim,1) * 0.2)` 读它 |
+| 滚回顶部 → 提示回来 | 同一套映射是双向的（`dim = 1 - scrollTop / 260`，夹在 0~1） |
+
+**为什么走 CSS 变量而不是 state**：滚动每帧都在变，16 张卡每帧 `setState` = 每帧重渲染
+整页（含整只 SVG 猫、挂钩板、点阵），手机上必掉帧。连续量写 DOM 变量（一次样式重算，
+零 React 参与），**只有一个布尔 `dissolved` 走 state**，而且带迟滞（0.02 / 0.12 两个阈值），
+只在跨过阈值时翻一次 —— 它管的是「`filter` 这个属性还要不要挂在卡片上」。
+
+**`dissolved` 为什么必须存在、不能一直挂着 `filter`**：`filter` 只要不是 `none` 就会
+新建一层 **backdrop root**，⑭ 波浪卡里那句 `mix-blend-difference` 是跟「最近的层」混色的，
+凭空多一层发色就会变。所以彻底清晰时**整个属性撤掉**，而不是留一个 `blur(0px)`。
+顺带把 `pointer-events` / `user-select` 还给卡片：都看清了还不让点，说不过去。
+
+**消散距离 260px**：约等于手机上「一行卡 + 一点余量」。太短（<100）手一抖模糊就没了，
+提示等于没给；太长（>400）用户已经翻过小半页了还糊着。桌面与手机**共用同一套**——
+滚动事件都发生在那层容器上，两个平台没有分支。
+
+实测（`verify-topbar.js`，2026-09-29）：桌面 1600×1000 + 移动 390×844 各跑一遍，
+**48/48 通过** —— 含「滚到 700px 后 `--bento-dim` 归零 / `filter` 变 `none` /
+`pointer-events` 变 `auto`」「半山腰切分类 → `scrollTop` 回 0 且模糊重新出现」
+「停在 520px 点当前分类 → `scrollTop` 纹丝不动」。
 
 #### 4.7.10 ★ SKILLS 挂钩板（这不是 CSS 动画，是真的 2D 刚体模拟）
 
@@ -1204,27 +1246,37 @@ export function asset(path: string) {
 | `bento-final-shot.js` | 暗 / 亮各一张整页截图 |
 | `shot-card.js` | 单卡 2x 裁图（跟 `ref-*.png` 同倍率对比用） |
 | `probe-theme-card.js` | 日月卡内 7 个绝对定位元素的落位百分比 |
-| `verify-cat.js` | **两只猫**共 28 项：视线跟随 / 点击 / 连点彩蛋 / **彩蛋保护期** / **照参考图的配色（暖调炭黑 `#302D26` + 黄绿 `#C6D74F`）、「耳高比 ≤ 0.36」、奶油米底** / 登录页压框几何与「点框仍能聚焦」/ 连点 5 下跳过登录进 `/bento`，见 4.7.16 |
+| `verify-cat.js` | **两只猫**共 42 项：视线跟随 / 点击 / 连点彩蛋 / **彩蛋保护期** / **白幕传送门（开门 → 自动关门 → 铺白幕跳 2048）** / **照参考图的配色（暖调炭黑 `#302D26` + 黄绿 `#C6D74F`）、「耳高比 ≤ 0.36」、奶油米底** / 登录页压框几何与「点框仍能聚焦」/ 连点 5 下跳过登录进 `/bento`，见 4.7.16 |
 | `shot-cat.js` | 两只猫的 9 张 3x 特写（侧躺三态 + 亮色 + 登录页三态 + **登录页暗色**）+ reduced-motion 降级，见 4.7.16。**🔴 断言全绿也要看这组图** —— 「柔光把炭黑猫冲成灰猫」那个 bug 只有肉眼看得出来 |
 | `measure-login2.js` | 量 `/login` 表单区的纵向排布（`h1` / 说明 / 标签行 / 输入框的 top-bottom），用来定**登录页那只猫最多能做多高**（实测输入框上方只剩 ~56px → 猫 `h-[76px]`） |
 | `verify-nav-wave-term.js` | **四块共 20 项**（2026-09-24 深夜更新）：A 挥手在 1600/900 视口**多帧采样不越滚动容器顶**（A1~A3）/ B 点分类 tab → `order` 重排 + blur 弱化 + 指示器对准 + 「全部」可恢复（B1~B6）/ D 挂钩板**重置后徽章逐个出现**（D1~D3，采样 7s）/ C 终端点击 → running 态 → **跳 `/resume`** → 打字机逐字出字（C4 轮询）→ **macOS 三灯窗口 + 标题 + ⌥⌘1**（C5）→ 打字动效进行中（C6）→ **reduce 下整页即时完整渲染**（C7），见 4.7.9 末尾与 4.7.10/4.7.11 |
 | `verify-flip-midframe.js` | 连续采样 FLIP 中间帧，断言卡片带**非零 transform 补间**（不是瞬移），见 4.7.9 末尾 |
+| `verify-topbar.js` | **回顶 + 弱化消散共 48 项**（2026-09-29 加）：桌面 1600×1000 + 移动 390×844 各跑一遍 —— 点分类后滚动容器回顶、点**自己那个分类**毫无反应、往下滚 `--bento-dim` 1→0、归零后卡片 `filter` 变 `none` 且指针事件还给卡片，见 4.7.9「★ 2026-09-29」 |
+| `shot-mumu.js` | 「木木」4 张 2x 裁图：idle（带名字牌）/ 彩蛋气泡 / 紫色邀请气泡 / 白幕全屏，见 4.7.16 |
 
 ---
 
-#### 4.7.16 ★ 两只可以撸的黑猫（彩蛋）
+#### 4.7.16 ★ 两只可以撸的黑猫（彩蛋）—— 它叫**木木**
 
-站里有**两只猫**，都是手写 SVG（不是图片、不是 emoji），每一条 path 都是现画的，
-所以眼睛和尾巴能各自单独动：
+站里有**两只猫**（其实是同一只猫的两种姿态，都叫**木木**），都是手写 SVG
+（不是图片、不是 emoji），每一条 path 都是现画的，所以眼睛和尾巴能各自单独动：
 
 | | ① 工具箱格那只 | ② 登录页那只 |
 |---|---|---|
 | 文件 | `components/bento/cat.tsx` | `components/ui/login-cat.tsx` |
 | 位置 | `/bento` 网格**第 2 格**（原「头像」格） | `/login` **邮箱输入框的顶沿上** |
-| 姿势 | **侧躺**（身体是一只横躺的圆面包、头在右端高高支起 `r=42`、前爪一前一后伸向右前方、尾巴从左后方绕出来卷个小勾 —— 2026-09-24 深夜第五版，坐姿版被评「还是没改成侧躺」） | **坐着**（照参考图那副坐相，尾巴搭在框边） |
+| 姿势 | **侧躺**（身体是一只横躺的圆面包、头在右端高高支起 `r=42`、前爪一前一后伸向右前方、尾巴从左后卷个小勾 —— 2026-09-24 深夜第五版，坐姿版被评「还是没改成侧躺」） | **坐着**（照参考图那副坐相，尾巴搭在框边） |
+| 名字 | 卡左上角有 `.cat-name` 名字牌「木木」；① 号介绍卡第三段也写了「那只叫木木的黑猫」 | 只出现在「暗示」文案与彩蛋气泡里（框沿太窄，挂不下名字牌） |
 | 配色 | **黑猫**：暖调炭黑 `#302D26` + **黄绿眼** `#C6D74F` | 同一套色板（外加 `.cat-halo` 柔光底） |
-| 柔光 | `.cat-glow`（奶油底上几乎看不出，只是让卡「有空气」） | `.cat-halo`（**必须**，暗色登录页是近黑底） |
-| 彩蛋 | **连点 7 下** → 爱心/星星/爪印两轮齐飞 | **连点 5 下** → **跳过登录直接进 `/bento`** |
+| 柔光 | `.cat-glow`（奶油底上几乎看不出，只是让卡「有空气」；**门开着时会变暖、加快到 1.6s**） | `.cat-halo`（**必须**，暗色登录页是近黑底） |
+| 彩蛋 | **连点 7 下** → 爱心/星星/爪印两轮齐飞；演完 + 保护期过后**门打开 6s**，再点一下 → **白幕铺开 → 跳 2048game.com** | **连点 5 下** → **跳过登录直接进 `/bento`** |
+
+> 🔴 **名字只写在这几处、别漏**（2026-09-29 小潘交代「它叫木木」）：
+> 两只猫的 `aria-label`、`.cat-name` 名字牌、① 号介绍卡第三段（用 `<code>木木</code>`）、
+> 登录页「暗示」文案（`.cat-hint`）与跳过登录的 toast、`/resume` 终端里那句
+> 「登录页那只可以撸的黑猫木木」。**改名字时用 `grep -rn "木木" src/` 过一遍。**
+> ⚠️ `verify-cat.js` 里有两处按原文断言的文案：A4 的「被你发现」（彩蛋气泡）、
+> B4 的「喵！木木跟你走～」（登录页彩蛋气泡）—— 改文案要同步改探针。
 
 > 📌 **卡片编号口径**（旧文档这里有坑）：猫卡是 `/bento` 网格里的**第 2 格** ——
 > 卡片总表里的 `#1`（那张表从 0 开始数）、`bento/page.tsx` 注释里的 `②`。
@@ -1249,6 +1301,7 @@ export function asset(path: string) {
 | 视线跟着鼠标跑 | 全窗口 `pointermove` | rAF 节流 → 写 `--gaze-x` / `--gaze-y`，**零重渲染** |
 | 眯眼笑 + 冒气泡 | 点一下（持续 900ms） | React 状态：眼睛换成两弯 `^ ^` + 绿气泡（文案按次数轮换，不是随机） |
 | **彩蛋** | 连点 N 下（窗口 1.6s / 1.8s） | 8 个爱心/星星/爪印分**两轮**飞出 + 转圈跳两下 + 吐舌头 + 橙色气泡 |
+| **白幕传送门** | 彩蛋演完 + 保护期过后，**门开 6s**，再点一下 | `onPortal` 上抛猫中心视口坐标 → 页面根的 `ColorVeil` 从该点铺白幕（`#F8F4EB` → `#FFFFFF`）→ `onComplete` 跳 `2048game.com` |
 | 尾巴摆 / 呼吸 / 呆毛倒 / 暖光呼吸 | 一直在 | 纯 CSS 无限动画 |
 
 ##### 色板：暖调炭黑 + 黄绿眼（2026-09-24 照参考图整版重做）
@@ -1401,7 +1454,31 @@ export function asset(path: string) {
   所以「蓝→黑→新页面浮现」那套无缝衔接一模一样，没有第二套动效。
   唯一区别是先等 1.1s 让彩蛋演小半截再铺幕布 —— 不然点完立刻黑屏，等于把彩蛋吃了。
 
-##### 验收（`verify-cat.js` 实测，28/28 通过）
+##### 白幕传送门（2026-09-29 加）
+
+小潘要「连点彩蛋之后能去 `2048game.com`，而且那站是**白底**，得渐变过去」。
+三个必须这么做的理由：
+
+1. **不能第 7 下直接跳** —— 那会把整个彩蛋表演吃掉。改成三段：
+   彩蛋播完（`partyMs 3000`）→ 保护期再过 0.5s → **门打开**（`PORTAL_OPEN_MS = 3000 + 500 + 120 = 3620ms`），
+   卡片左上角冒出紫色邀请气泡「🎮 再点一下，去玩 2048」+ 暖光变快；门开 **6s** 内再点一下才走。
+   🔴 `PORTAL_OPEN_MS` **必须 > `partyMs + eggCooldownMs`** —— 否则第一下点击正落在保护期里被整颗吞掉，
+   用户点完门没反应，以为坏了。
+2. **幕布不能画在猫卡里** —— 猫卡有 `overflow-clip`，未命中分类时还挂着 `filter`，
+   两者都会让 `position: fixed` 退化成相对该卡定位。所以 `ColorVeil` 挂在 `/bento` **页面根**，
+   猫通过 `onPortal(origin)` 把**自己的视口中心坐标**上抛给页面。
+3. **白幕从卡片颜色长出来** —— `PORTAL_FROM = "#F8F4EB"`（与猫卡奶油底同色，像幕布从卡里长出来）
+   → `PORTAL_TO = "#FFFFFF"`（2048 的底色），`fadeStartRatio 0.4` + `fadeDuration 700`，
+   实测约 1.0s 后 `onComplete` 触发跳转。
+
+> 🔴 **必须有 `pageshow` 兜底**：从 2048 按浏览器后退回来时页面走 bfcache，
+> 幕布会定格在纯白。`bento/page.tsx` 里监听 `pageshow` 把 `portalVeil` 与
+> `portalLeavingRef` 收回，回到干净状态。
+> ⚠️ `verify-cat.js` 的 A6d 验跳转时**不能 `req.abort()`** —— 主框架导航被中止会换掉当前文档，
+> 后续 `page.evaluate` 全超时。改成**把请求吊住不响应**，并以「已发出 2048game.com 的导航请求」
+> 作为「幕布已白透」的等价证据。
+
+##### 验收（`verify-cat.js` 实测，42 项全绿 / 0 失败）
 
 ```
 A 第 2 格那只（侧躺）
@@ -1409,11 +1486,15 @@ A 第 2 格那只（侧躺）
 ② 视线跟随  右上 → gaze( 4.33, -1.77)px
             左下 → gaze(-4.32,  1.78)px         方向正确 ✓
 ③ 点一下    mood=happy，气泡在卡内 ✓；自动收回 idle ✓
-④ 连点 7 次 mood=party，8 个特效全在卡内，专属气泡 ✓
+④ 连点 7 次 mood=party，8 个特效全在卡内，专属气泡「喵！木木被你发现啦 🎉」✓
 ⑤ 🔴 彩蛋中补点 2 次，party 与彩蛋气泡**都还在**（保护期生效）✓
 ⑥ 彩蛋 + 0.5s 后回 idle，且能**再次**触发 ✓
+⑥b 彩蛋 + 保护期过后**门打开**（`data-portal` 在，暖光变快）✓
+⑥c 门开满 6s **自动关门**（`data-portal` 撤掉）✓
+⑥d 门开着时**点一下 → 铺白幕 → 发出 2048game.com 的导航请求**✓
 ⑦ 呆毛 / 暖光 / 尾巴齐备，每眼两处高光（4 处）✓
    🔴 项圈铃铛已按参考图去掉（bell = false）✓
+   🔴 左上角 `.cat-name` 名字牌 = 「木木」✓
 ⑧ 🔴 照参考图的配色与耳朵：
    head fill  = rgb(48,45,38)  = #302D26（暖调炭黑，不是纯黑）✓
    iris fill  = rgb(198,215,79) = #C6D74F（黄绿）✓
@@ -1424,7 +1505,7 @@ B 登录页那只（坐在框沿上）
 ① 压框 6px（0~10 内）、完整落在框内、**点框子正中仍能聚焦** ✓
 ② 暗示在框子正上方 10px、且位于猫的右上 ✓
 ③ 点一下 → 眯眼 + 气泡 ✓
-④ 连点 5 下 → party + 8 个特效 + 「喵！跟你走～」→ 自动跳到 /bento + 会话已写入 ✓
+④ 连点 5 下 → party + 8 个特效 + 「喵！木木跟你走～」→ 自动跳到 /bento + 会话已写入 ✓
 ⑤ 🔴 同样是炭黑 + 黄绿眼（fill 同上）、耳高/头径 0.325、`.cat-halo` 在位 ✓
 JS 错误：/bento 0 | /login 0
 ```
@@ -1434,7 +1515,7 @@ JS 错误：/bento 0 | /login 0
 **0 张卡隐身**、`--gaze-x` 未注入（说明跟随已跳过）、点击仍冒「喵～」✓
 
 > 🔴 **断言绿 ≠ 没问题。** 2026-09-24 那次「柔光把炭黑猫冲成灰猫」的 bug，
-> 跑 28 项断言**全绿**，是**肉眼看截图**才发现的。
+> 跑整套断言（当时 28 项）**全绿**，是**肉眼看截图**才发现的。
 > 所以改完猫必须出图：`shot-cat.js`（9 张特写）+ `bento-shot-full.js`（暗/亮整页）。
 
 ##### 想改的话
@@ -1446,7 +1527,8 @@ JS 错误：/bento 0 | /login 0
 | 眼眶描边粗细 | `cat.tsx` 两处 `strokeWidth="2"` / `login-cat.tsx` 两处 `strokeWidth="1.8"`（调粗会显得猫在瞪人） |
 | 耳朵 | `cat.tsx`（`M68 69 L74 42 L80 59 Z`）与 `login-cat.tsx`（`M47 30 L53 4 L60 21 Z`）里那两个 `.cat-ear` 的 path |
 | 连点次数 / 判定窗口 / 保护期 | 组件里传给 `usePetSequence` 的参数（`eggCount` / `windowMs` / `eggCooldownMs`） |
-| 气泡文案 | 两个文件顶部的 `HAPPY_TEXTS` 与 `eggText` |
+| 气泡文案 / 名字 | 两个文件顶部的 `HAPPY_TEXTS` 与 `eggText`；名字牌 `.cat-name` 的「木木」在 `cat.tsx` 与 `globals.css`（`grep -rn "木木" src/` 过一遍） |
+| 传送门（开门时长 / 跳转目标 / 白幕颜色） | `cat.tsx` 的 `PORTAL_OPEN_MS` / `PORTAL_WINDOW_MS` 与 `bento/page.tsx` 顶部的 `PORTAL_FROM` / `PORTAL_TO` / `PORTAL_URL` |
 | 瞳孔幅度 | `MAX_X` / `MAX_Y`（第 2 格 4.6 / 4；登录页 4.0 / 2.8 —— 大圆瞳孔版，见 4.7.x 的余量推导） |
 | 尾巴摆幅 / 呼吸 / 呆毛 / 暖光 | `globals.css` 的 `@keyframes cat-tail` / `cat-breathe` / `cat-tuft` / `cat-glow` |
 | 彩蛋时长 | `cat-party` 是 `1.5s × 2 = 3.0s`，**必须与 `partyMs: 3000` 保持一致** |
@@ -1931,6 +2013,8 @@ curl -sI https://gelunpan.github.io/pgl-tools/ | head -2
 | 53 | 🔴 **深色毛的猫「看得见」靠四处兜着，一处都不能回退** | ① 眯眼笑的 `^ ^` 笔画**必须是亮色**（深色画在黑脸上等于没画，一点击表情就消失）；② 第 2 格那张卡的底色**必须是奶油米色、且刻意不留 `dark:` 分支**（`bg-gradient-to-b from-[#F8F4EB] to-[#E9E1D2]`；曾经是一条渐隐到透明的蓝渐变，黑猫下半身会糊进近黑底）；③ 登录页那只**必须带 `.cat-halo`** 柔光底（登录页暗色底 ≈ `hsl(20 14.3% 4.1%)`）；④ 🔴 **`.cat-svg` 必须有 `position: relative; z-index: 1`** —— 否则绝对定位的柔光层在 paint order 上会盖住静态 `<svg>`，**炭黑猫被冲成灰猫**（2026-09-24 踩过，断言全绿、只有截图看得出）。改毛色 / 底色时四处一起过一遍，并跑 `verify-cat.js` 的 A8 / B5 —— 它会真的读 `fill` 和量耳高比。见 4.7.16 |
 | 54 | 🔴 **网格顶部 padding（`pt-24 xl:pt-28`）是挥手的天顶，不能改小** | ① 号格的 👋 带 `-mt-16`（拉到卡外 ~64px）+ 晃动再上冲 ~52px，而滚动容器（`overflow-y-auto`）的上沿就是裁剪线 —— 网格顶部 padding 是手唯一的活动空间。实测 `pt-12 xl:pt-20` 在 900px 视口越界 35.6px、1600px 越界 20.5px（小潘反馈「晃到最高点会撞到边框隐藏一部分」），加大后才全断点为正。改这个值前先跑 `verify-nav-wave-term.js` 的 A1~A3（多帧采样，不是量静止位置）。见 `bento-card.tsx` 的 BentoGrid 注释 |
 | 55 | **16 张卡都要挂 `dataType`，新卡也不例外** | 分类切换靠每张卡的 `dataType` 跟当前 tab 比对（`tabs.ts` 的 `isCardMatched`）。漏挂**不会报错** —— 未挂的卡被视为「永远命中」，永远 `order: 0`、永不弱化，筛选观感直接破掉且很难发现。新卡加进网格时必须同时想清楚它属于 `toolbox` / `tags` / `projects` / `about` 哪一类。见 4.7.9 末尾 |
+| 56 | 🔴 **猫传送门的 `PORTAL_OPEN_MS` 必须 > `partyMs + eggCooldownMs`** | 门必须在彩蛋保护期**完全结束之后**才开，否则用户点开的那一下正落在保护期里被整颗吞掉，点了没反应、以为坏了。当前 `3000 + 500 + 120 = 3620`。另外**幕布不能挂在猫卡里**（猫卡有 `overflow-clip` + 未命中时挂 `filter`，`position: fixed` 会退化成相对该卡），必须挂在 `/bento` 页面根、由猫 `onPortal(origin)` 上抛坐标；并且要监听 `pageshow` 收幕布（从 2048 后退回来走 bfcache 会定格在纯白）。见 4.7.16「白幕传送门」 |
+| 57 | 🔴 **弱化消散归零时必须整个撤掉 `filter` 属性，不能写 `blur(0)`** | `filter` 只要不是 `none` 就会新建 backdrop root，破坏 ⑭ 波浪卡的 `mix-blend-difference`。所以离散量 `dissolved`（走 state，带迟滞）专管「`filter` 属性还要不要挂」，连续量 `--bento-dim`（走 CSS 变量、零重渲染）只管 blur 半径。另外**点自己那个分类必须完全无反应** —— 光靠 `setTab(同值)` 不够（React 不重渲染，但 `scrollToTop()` 是命令式的，照样把人拽回顶部），必须在回调开头 `if (next === tab) return`。见 4.7.9 |
 
 ---
 
@@ -1959,6 +2043,8 @@ curl -sI https://gelunpan.github.io/pgl-tools/ | head -2
 | **登录成功过渡动效** | `src/components/ui/color-veil.tsx` + `globals.css` 的 keyframes | 改之前先读 **4.6**；起始色/终色/时长走 `<ColorVeil color fadeTo fadeStartRatio fadeDuration duration>` |
 | 报错 / 成功提示 | 各页 `toast({...})`、`z.string().min(...)` 的 message | — |
 | 404 页面 | `src/app/not-found.tsx` | — |
+| **猫的名字「木木」** | 散布 6 处 | 两只猫的 `aria-label`、`cat.tsx` 的 `.cat-name` 名字牌、① 号介绍卡第三段（`<code>木木</code>`）、`login/page.tsx` 的 `.cat-hint` 与跳过登录 toast、`terminal-session.tsx` 里那句。**`grep -rn "木木" src/` 过一遍**；改完同步 `verify-cat.js` 的 A4/B4 文案断言 |
+| **猫的白幕传送门** | `src/components/bento/cat.tsx` + `src/app/bento/page.tsx` | 猫卡里 `PORTAL_OPEN_MS` / `PORTAL_WINDOW_MS`；页面顶部 `PORTAL_FROM` / `PORTAL_TO` / `PORTAL_URL`。⚠️ 见 4.7.16 与硬约束 56 |
 | 配色 / 圆角 / 主题变量 | `src/app/globals.css` | CSS 变量 |
 
 ### 7.2 加一个新页面
@@ -2378,10 +2464,15 @@ Bento 设计系统（/bento）
   打字机            自己实现的 typed.js 行为，光标硬切闪烁（4.7.11）
   沙丘卡            canvas 读自身 CSS fill 当绘制色 + 文字 mix-blend-difference（4.7.12）
   点阵背景          仅日间（dark:hidden），中间一块显影（4.7.13）
-  猫咪（两只彩蛋）  ① /bento 第 2 格**侧躺**猫：视线跟随鼠标（写 --gaze-x/y，零重渲染）
-                    + 点一下眯眼笑 + 连点 7 次彩蛋；卡片底色是奶油米色（bento/cat.tsx）
+  猫咪「木木」       ① /bento 第 2 格**侧躺**猫：视线跟随鼠标（写 --gaze-x/y，零重渲染）
+                    + 点一下眯眼笑 + 连点 7 次彩蛋 → 保护期过后门开 6s，再点一下
+                    → 白幕（#F8F4EB→#FFF）铺开跳 2048game.com；卡左上角名字牌「木木」
+                    + 卡片底色是奶油米色（bento/cat.tsx）
                     ② /login **坐在邮箱框沿上**那只：点一下眯眼笑 + **连点 5 下跳过登录进 /bento**
                     （ui/login-cat.tsx）—— 撸猫状态机共用 hooks/use-pet.ts，见 4.7.16
+  回顶 + 弱化消散    点分类 tab / 点 logo → 滚动容器回顶并恢复未命中卡；往下滚 --bento-dim
+                    1→0，卡渐渐清晰（filter 属性在归零那刻整个撤掉，保护 mix-blend-difference）
+                    （hooks/use-bento-dim.ts，见 4.7.9 新增节）
   降级              prefers-reduced-motion 下有整条兜底路径（4.7.8 末尾）
                     ★猫的「点击互动」不受降级影响（那是状态变化，不是动画）
 

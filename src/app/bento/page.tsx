@@ -23,6 +23,8 @@ import { type BentoTabName } from "@/components/bento/tabs";
 import { TerminalCard } from "@/components/bento/terminal";
 import { ThemeToggle } from "@/components/bento/theme-toggle";
 import { WaveCanvas } from "@/components/bento/wave-canvas";
+import { ColorVeil, type VeilOrigin } from "@/components/ui/color-veil";
+import { useBentoDim } from "@/hooks/use-bento-dim";
 import { useBentoTheme } from "@/hooks/use-bento-theme";
 import { useConvergeIn } from "@/hooks/use-converge-in";
 
@@ -36,6 +38,24 @@ import { useConvergeIn } from "@/hooks/use-converge-in";
       文章。这里只搬**信息结构与版式**（几行字、几个字段、字段之间的比例），
       文字换成这个站自己的。要换成真内容时直接改下面几个常量数组即可。
    ============================================================================ */
+
+/* ------------------------------------------------------------------
+   木木的「门」：彩蛋演完之后点一下，去玩 2048
+
+   目标站（2048game.com）是**纯白底**，所以幕布走「木木那层奶油色 → 纯白」：
+   铺满的那一刻屏幕已经白透，跳过去正好接上它的白底，看不出切换。
+
+   幕布必须挂在**页面根**上，不能塞进猫那张卡里 —— 卡有 `overflow-clip`，
+   未命中分类时还会挂 `filter`，两者都会把 `position: fixed` 降级成
+   「相对这张卡定位」，幕布就只盖住一小块了（登录页那条注释说的是同一件事）。
+
+   时长：0.76s 扩散 + 0.4s 后开始变白（700ms 变完）≈ 1.0s 后跳转。
+   reduced-motion 下 CSS 会把这两段动画压到 1ms（`[data-veil-anim]`），
+   事件照常触发 → 立即跳转，不会卡住。
+   ------------------------------------------------------------------ */
+const PORTAL_FROM = "#F8F4EB"; // 与猫卡底色同色：幕布像是从卡片本身长出来的
+const PORTAL_TO = "#FFFFFF"; // 2048game.com 的白底
+const PORTAL_URL = "https://2048game.com/";
 
 /* ------------------------------------------------------------------
    数据常量
@@ -245,6 +265,32 @@ export default function BentoPage() {
   const [serifOn, setSerifOn] = React.useState(false);
   /** 顶部导航选中的分类。`all` = 不筛。见 components/bento/tabs.ts */
   const [tab, setTab] = React.useState<BentoTabName>("all");
+  /** 网格滚动容器 —— 切分类要把它滚回顶部；弱化提示也按它的 scrollTop 消散 */
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const { dissolved, scrollToTop } = useBentoDim(scrollRef);
+  /** 木木的门被点开：幕布从猫身上铺开，铺满（纯白）之后跳 PORTAL_URL */
+  const [portalVeil, setPortalVeil] = React.useState<VeilOrigin | null>(null);
+  const portalLeavingRef = React.useRef(false);
+
+  const handleCatPortal = React.useCallback((origin: VeilOrigin) => {
+    if (portalLeavingRef.current) return; // 已经在铺幕布了，别来第二张
+    portalLeavingRef.current = true;
+    setPortalVeil(origin);
+  }, []);
+
+  /**
+   * 从 2048game.com 按「后退」回来时，浏览器常常是**从 bfcache 直接恢复**这一页：
+   * 幕布还挂在屏幕上、停在整屏纯白，用户会以为站坏了。
+   * 所以 pageshow 一律把幕布收掉（首次加载也会触发，此时本来就是 null，无害）。
+   */
+  React.useEffect(() => {
+    const onPageShow = () => {
+      portalLeavingRef.current = false;
+      setPortalVeil(null);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   // 会话只在客户端读，首帧一律空串 —— 否则 SSR 拿到空、CSR 拿到名字，hydration 会炸
   React.useEffect(() => {
@@ -263,14 +309,30 @@ export default function BentoPage() {
    * transform 的，而分类重排的 FLIP 用的是同一条 transform —— 两者同时跑必然打架
    * （卡片会从屏幕外飞一半再被 FLIP 拽回来）。boot 到 settled 只有 ~2.9s，
    * 期间点导航本来也没意义，直接吞掉最省事。
+   *
+   * 🔴 点「自己那个」分类 = **完全无反应**（2026-09-29 小潘点名要求）。
+   *    以前会 `setTab(同一个值)` —— React 会发现状态没变而不重渲染，但
+   *    `scrollToTop()` 是命令式的，照样会把页面拽回顶部；在手机上一路翻到下面
+   *    看卡的人，手滑点了一下当前分类就被弹回去，会以为页面出毛病了。
    */
   const handleTabChange = React.useCallback(
     (next: BentoTabName) => {
       if (phase !== "settled") return;
+      if (next === tab) return;
       setTab(next);
+      // 切完分类，视口也要跟着回网格顶部 —— 筛出来的卡都在最前面，
+      // 停在半山腰看到的全是被排到后面那批（留言里那句「整个页面自动模糊」）。
+      // `scrollToTop` 会顺带把弱化提示恢复到「在顶部」的状态，两件事必须一起做。
+      scrollToTop();
     },
-    [phase],
+    [phase, tab, scrollToTop],
   );
+
+  /** 点左上角 logo：不跳转（本来就在这一页），只回到开头 */
+  const handleHome = React.useCallback(() => {
+    if (phase !== "settled") return;
+    scrollToTop();
+  }, [phase, scrollToTop]);
 
   const handleLogout = React.useCallback(() => {
     try {
@@ -310,14 +372,22 @@ export default function BentoPage() {
 
       {/* html/body 上有 overflow:hidden（登录页要求的），滚动必须由内层接管 */}
       <div className="relative z-10 flex h-full flex-col">
-        <SiteHeader active={tab} onChange={handleTabChange} onLogout={handleLogout} />
+        <SiteHeader
+          active={tab}
+          onChange={handleTabChange}
+          onHome={handleHome}
+          onLogout={handleLogout}
+        />
 
-        {/* min-h-0 不能省：flex 子项默认 min-height:auto，不加就撑不出滚动区 */}
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        {/* min-h-0 不能省：flex 子项默认 min-height:auto，不加就撑不出滚动区。
+            ⚠️ 这个 div 还有两个身份：① 切分类时被 scrollToTop 滚回顶部；
+               ② 弱化提示的进度源 —— useBentoDim 按它的 scrollTop 往它身上写
+                  `--bento-dim`（卡片读 CSS 变量，逐帧但不重渲染）。 */}
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           {/* filterTab = 当前分类。网格内部会把它塞进 context，
               16 张卡各自拿它跟自己的 dataType 比一比，决定 order / 模糊 / 透明度。
-              见 tabs.ts 与 bento-card.tsx */}
-          <BentoGrid className="min-h-full" filterTab={tab}>
+              dissolved = 那层模糊是否已经随滚动散尽。见 tabs.ts 与 bento-card.tsx */}
+          <BentoGrid className="min-h-full" filterTab={tab} dissolved={dissolved}>
             {/* ================= ① 自我介绍（prose）2×1 =================
                 参考站这格是 `prose` + `dark:prose-invert`（typography 插件），
                 断点跨度：base 2×2 → md 4×1 → lg 2×1。 */}
@@ -364,13 +434,23 @@ export default function BentoPage() {
                 <code>翻成白天</code>
                 。
               </p>
-              <p>网格、卡片、明暗切换都已就位，每个格子里填什么，后面再逐个长出来。</p>
+              {/* ⚠️ 这一段要跟上面两段**保持差不多长**：这张卡在 md 是 row-span-1
+                  （180px），多出一行就会撑破。改文案前先看一眼 md 断点。
+                  顺便，猫的名字就写在正文里 —— 名字牌在卡上太不起眼，
+                  得有一句话把它介绍出来。 */}
+              <p>
+                网格与卡片都已就位；那只叫
+                <code>木木</code>
+                的黑猫也搬进来了，闲着可以撸两下。
+              </p>
             </BentoCard>
 
             {/* ================= ② 猫咪 1×1（彩蛋） =================
-                参考站这格是博主的 3D 形象。这里换成一只**可以撸的猫**：
-                视线跟着鼠标跑、点一下眯眼笑并冒出「喵～」，连点 7 次触发彩蛋。
-                实现全在 components/bento/cat.tsx（那儿写了四条硬约束）。
+                参考站这格是博主的 3D 形象。这里换成一只**可以撸的猫 —— 木木**：
+                视线跟着鼠标跑、点一下眯眼笑并冒出「喵～」，连点 7 次触发彩蛋；
+                彩蛋演完 + 保护期过后「门」打开 6s，那期间再点一下 = 去玩 2048。
+                实现全在 components/bento/cat.tsx（那儿写了四条硬约束 + 开门的设计理由），
+                跳转的幕布挂在**本页根部**（卡有 overflow-clip / filter，会把 fixed 废掉）。
                 背景是**奶油米色**（照小潘给的黑猫参考图取的色）—— 注意这里**没有**
                 `dark:` 分支：黑猫在深色底上会糊，两套主题都得是这层米色。
                 猫才是主角，所以卡上只留一层会呼吸的暖光（`.cat-glow`）。 */}
@@ -378,7 +458,7 @@ export default function BentoPage() {
               dataType="about"
               className="overflow-clip bg-gradient-to-b from-[#F8F4EB] to-[#E9E1D2] p-0"
             >
-              <BentoCat />
+              <BentoCat onPortal={handleCatPortal} disabled={!!portalVeil} />
             </BentoCard>
 
             {/* ================= ③ SKILLS 挂钩板 1×2 =================
@@ -613,6 +693,23 @@ export default function BentoPage() {
           </BentoGrid>
         </div>
       </div>
+
+      {/* 木木的「门」被点开：从猫身上铺开一层奶油色幕布，铺到一半起
+          **悄悄变成纯白**（2048game.com 的底色），全白之后才跳过去 ——
+          所以「跳转」这一下在视觉上是不存在的，屏幕本来就是白的。
+
+          注意它挂在最外层（`position: fixed; z-[60]`），祖先里不能有
+          transform / filter / opacity，否则会被降级成相对该祖先定位。 */}
+      <ColorVeil
+        origin={portalVeil}
+        color={PORTAL_FROM}
+        fadeTo={PORTAL_TO}
+        fadeStartRatio={0.4}
+        fadeDuration={700}
+        onComplete={() => {
+          window.location.href = PORTAL_URL;
+        }}
+      />
     </div>
   );
 }

@@ -5,7 +5,7 @@ import * as React from "react";
 import { usePetSequence } from "@/hooks/use-pet";
 
 /* ============================================================================
-   LoginCat —— 趴在登录页邮箱框上沿的一只猫（第二个撸猫彩蛋）
+   LoginCat —— 趴在登录页邮箱框上沿的那只猫，**和工具箱里那只一样叫木木**
 
    ## 它和不远处 第 2 格那只的区别
 
@@ -13,7 +13,7 @@ import { usePetSequence } from "@/hooks/use-pet";
    |---|---|---|
    | 姿势 | **趴卧**（四爪朝前、抬头看人） | **坐着**（照小潘给的参考图那副坐相） |
    | 落点 | 奶油米色卡片正中 | **邮箱输入框的顶沿上**（尾巴搭在框边） |
-   | 彩蛋 | 连点 7 下 | **连点 5 下 → 直接跳过登录进 `/bento`** |
+   | 彩蛋 | 连点 7 下 → 演一场，再点一下去玩 2048 | **连点 5 下 → 直接跳过登录进 `/bento`** |
    | 柔光 | 不需要（米色卡本身有对比） | **必须**（登录页暗色底 ≈ 近黑） |
 
    撸猫的状态机（连点计数、彩蛋保护期、气泡轮换）在 `hooks/use-pet.ts`，
@@ -73,7 +73,8 @@ export function LoginCat({
     windowMs: 1800,
     partyMs: 2600,
     happyTexts: HAPPY_TEXTS,
-    eggText: "喵！跟你走～",
+    // ⚠️ 改这句话要同步 verify-cat.js 的 B4（它按原文断言）
+    eggText: "喵！木木跟你走～",
     onEgg: () => onSkip?.(readOrigin()),
   });
 
@@ -131,7 +132,7 @@ export function LoginCat({
       ref={rootRef}
       type="button"
       onClick={pet}
-      aria-label="摸摸这只黑猫（连点 5 下有惊喜）"
+      aria-label="摸摸木木（连点 5 下有惊喜）"
       data-mood={mood}
       data-cat="login"
       className="cat-root cat-root-lie absolute left-[8%] top-[-70px] h-[76px] w-[104px] cursor-pointer border-0 bg-transparent p-0 outline-offset-4"

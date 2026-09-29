@@ -5,7 +5,7 @@ import * as React from "react";
 import { usePetSequence } from "@/hooks/use-pet";
 
 /* ============================================================================
-   BentoCat —— 第 2 格（个人展示格）里的那只猫（一个可以撸的彩蛋）
+   BentoCat —— 第 2 格（个人展示格）里的那只猫，**它叫木木**
 
    ## 它为什么会「活」
 
@@ -14,7 +14,19 @@ import { usePetSequence } from "@/hooks/use-pet";
    | 视线跟着鼠标跑   | 全窗口 pointermove      | rAF 节流 → 写 --gaze-x/--gaze-y，零重渲染 |
    | 眯眼笑 + 冒气泡  | 点一下                  | React 状态（状态驱动，天生可重播）       |
    | 连点 7 次的彩蛋  | 1.6s 内连点 7 下        | 爱心/星星/爪印两轮齐飞 + 转圈跳 + 专属气泡 |
+   | **开门 → 去玩 2048** | **彩蛋演完后再点一下** | 从猫身上铺开一层幕布（木木的奶油色 → 纯白）→ 跳 2048game.com |
    | 尾巴摆 / 呼吸 / 呆毛 | 一直在              | 纯 CSS 无限动画                          |
+
+   ## 🔴 「开门」为什么要第二次点击、而不是彩蛋直接跳
+
+   第七下直接把人甩到别的站，等于**把彩蛋本身吃掉了**（爱心/星星/转圈跳全在幕布底下）——
+   登录页那只猫能这么干，是因为它的彩蛋就是「跳过登录」，跳转本身就是奖励；
+   木木的彩蛋是**表演**，表演得让人看完。
+
+   所以：彩蛋照旧演满 3s；演完 + 保护期过后，门打开（气泡换成
+   「🎮 再点一下，去玩 2048」、卡上暖光变亮加快），**再点一下**才走。
+   门只开 6s —— 不点就自己关上，回到正常的撸猫，免得留着当陷阱。
+   连点的手快党也安全：门开在保护期之后，绝不会把正在演的彩蛋顶掉。
 
    ## 🔴 四条硬约束（全是本项目已经踩过的坑）
 
@@ -26,6 +38,13 @@ import { usePetSequence } from "@/hooks/use-pet";
       （那是状态变化，不是动画）。
    4. **彩蛋有保护期**（`eggCooldownMs`）—— 手快补点不能把彩蛋顶掉。逻辑在
       `hooks/use-pet.ts` 里，那只猫（登录页）共用同一套。
+
+   ## 🔴 幕布不在这里渲染
+
+   「开门」只把**猫中心的视口坐标**交出去（`onPortal`），幕布由 `/bento` 页面挂在
+   页面根上。原因：这张卡有 `overflow-clip`，未命中分类时还会挂 `filter` ——
+   两者都会让 `position: fixed` 退化成「相对这张卡定位」，幕布就铺不满整屏了
+   （登录页那条注释里写的是同一件事）。
 
    ## 造型：照着小潘给的参考图（写实风黑猫）做的
 
@@ -77,14 +96,76 @@ const HAPPY_TEXTS = [
   "呼噜呼噜～",
 ];
 
-export function BentoCat() {
+/** 彩蛋气泡。⚠️ 保留「被你发现」四个字 —— verify-cat.js 的 A4 靠它判定彩蛋 */
+const EGG_TEXT = "喵！木木被你发现啦 🎉";
+
+/** 彩蛋表演时长。**必须等于 globals.css 里 cat-party 的总时长**（1.5s × 2） */
+const PARTY_MS = 3000;
+/** usePetSequence 的彩蛋保护期默认值 —— 门要等它过去才开，否则第一次点会被吞掉 */
+const EGG_COOLDOWN_MS = 500;
+/** 彩蛋演完后多久开门（保护期 + 一口气，别卡在边界上） */
+const PORTAL_OPEN_MS = PARTY_MS + EGG_COOLDOWN_MS + 120;
+/** 门开着多久。不点就自己关上，回到正常撸猫 —— 不留一个「点一下就飞走」的陷阱 */
+const PORTAL_WINDOW_MS = 6000;
+
+export function BentoCat({
+  onPortal,
+  disabled = false,
+}: {
+  /**
+   * 「开门」成功：把**猫中心的视口坐标**交出去，由页面从那儿铺开幕布并跳转。
+   * 不传 = 这个彩蛋只表演不开门（探针、或以后把猫放到别处时用）。
+   */
+  onPortal?: (origin: { x: number; y: number }) => void;
+  /** 已经在铺幕布了：整颗吞掉点击，别再触发第二次 */
+  disabled?: boolean;
+}) {
   const rootRef = React.useRef<HTMLButtonElement>(null);
+  /** 门是否开着（开着时下一次点击 = 去玩 2048） */
+  const [portalOpen, setPortalOpen] = React.useState(false);
+  const openTimerRef = React.useRef(0);
+
   const { mood, bubble, handlePet } = usePetSequence({
     eggCount: 7,
-    partyMs: 3000, // = cat-party 1.5s × 2 次
+    partyMs: PARTY_MS, // = cat-party 1.5s × 2 次
     happyTexts: HAPPY_TEXTS,
-    eggText: "喵喵喵！被你发现了 🎉",
+    eggText: EGG_TEXT,
+    onEgg: () => {
+      /* 开门要等两件事都过去：① 彩蛋演完（不然幕布盖住爱心和转圈跳）
+                              ② 保护期结束（不然门一开，那一下点击会被 usePetSequence
+                                 整颗吞掉 —— 用户会以为「点了没反应」） */
+      window.clearTimeout(openTimerRef.current);
+      openTimerRef.current = window.setTimeout(
+        () => setPortalOpen(true),
+        PORTAL_OPEN_MS,
+      );
+    },
   });
+
+  /* 门自己会关（PORTAL_WINDOW_MS）；卸载时把两个定时器一起清掉 */
+  React.useEffect(() => {
+    if (!portalOpen) return;
+    const t = window.setTimeout(() => setPortalOpen(false), PORTAL_WINDOW_MS);
+    return () => window.clearTimeout(t);
+  }, [portalOpen]);
+
+  React.useEffect(() => () => window.clearTimeout(openTimerRef.current), []);
+
+  /** 点一下：门开着就走，否则就是撸 */
+  const onClick = React.useCallback(() => {
+    if (disabled) return;
+    if (portalOpen) {
+      const r = rootRef.current?.getBoundingClientRect();
+      setPortalOpen(false);
+      onPortal?.(
+        r
+          ? { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+          : { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+      );
+      return;
+    }
+    handlePet();
+  }, [disabled, portalOpen, onPortal, handlePet]);
 
   /* ---- 视线跟随 ----
      🔑 走 CSS 变量而不是 setState：鼠标每动一个像素就重渲染整张卡
@@ -146,19 +227,38 @@ export function BentoCat() {
     <button
       ref={rootRef}
       type="button"
-      onClick={handlePet}
-      aria-label="摸摸这只黑猫（连点 7 下有惊喜）"
+      onClick={onClick}
+      // 门开着时标签也跟着换 —— 读屏用户同样该被明确告知「这一下会离开本站」
+      aria-label={portalOpen ? "点一下，去玩 2048" : "摸摸木木（连点 7 下有惊喜）"}
       data-mood={mood}
+      data-portal={portalOpen ? "" : undefined}
       className="cat-root absolute inset-0 cursor-pointer overflow-clip rounded-[inherit] border-0 bg-transparent p-0 outline-offset-4"
     >
       {/* 背景一层极淡的暖光（会呼吸）。奶油底上的白光几乎看不出来，
-          它只是让整张卡「有空气」，别调太亮 —— 猫才是主角 */}
+          它只是让整张卡「有空气」，别调太亮 —— 猫才是主角。
+          门开着时它会变暖、跳得快一档（CSS 里 `[data-portal] .cat-glow`）——
+          不用读字也能看出「它现在想让你点」。 */}
       <span aria-hidden className="cat-glow" />
+
+      {/* 名字牌。放左上角是因为那儿是画面里唯一一块空白：
+          身体压在下半部、尾巴从左下绕出去、头顶的呆毛在中间偏右。
+          奶油底上的浅褐色小字，安静；`pointer-events: none` 保证点它也照样撸得到猫。 */}
+      <span aria-hidden className="cat-name">
+        木木
+      </span>
 
       {/* 对话气泡 */}
       {bubble ? (
         <span key={bubble.id} className="cat-bubble" data-egg={bubble.egg ? "" : undefined}>
           {bubble.text}
+        </span>
+      ) : null}
+
+      {/* 门开着时的邀请气泡。`!bubble` 是防止跟别的气泡叠在一起 ——
+          同一时刻屏幕上只有一句话。 */}
+      {portalOpen && !bubble ? (
+        <span className="cat-bubble" data-portal="">
+          🎮 再点一下，去玩 2048
         </span>
       ) : null}
 

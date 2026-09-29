@@ -276,7 +276,7 @@ export function TerminalSession() {
                 能脚本化的绝不手点第二遍。
               </p>
               <p className="mt-2">
-                至于前端（还有登录页那只可以撸的黑猫、满屏的动效），纯粹是业余爱好：
+                至于前端（还有登录页那只可以撸的黑猫木木、满屏的动效），纯粹是业余爱好：
                 手头这个 <code className={codeC}>苹果绿的工具箱</code> 就是证据。
               </p>
             </TypedContent>

@@ -40,6 +40,20 @@ import { cn } from "@/lib/utils";
  *
  * ⚠️ 文字颜色的 `duration-1000` 保持不动 —— 那是整站统一的主题过渡节拍
  *   （见 PROJECT.md 4.7），跟「切 tab 手感」不是一回事。
+ *
+ * ## 2026-09-29：点分类要「弹回网格顶部」
+ *
+ * 小潘在手机上发现的问题：往下翻着看卡，点一个分类 —— 卡片确实重排了，但
+ * 视口还停在半山腰，眼前全是被推到后面的、糊着的那批卡，看着就像「整个页面
+ * 突然糊了」，而筛出来的那批在屏幕上方看不见。
+ *
+ * 所以切分类要**带着视口一起回顶**（逻辑在 /bento 页面里，因为滚动容器是它的）。
+ * 这一层只负责转发两个意图：
+ * - `onChange(name)`：点了某个分类。**点自己那个（已经是当前分类的）不进这里** ——
+ *   页面会把它当成「无反应」直接吃掉，不重排、不滚动、不闪。
+ * - `onHome()`：点了左上角 logo。这个站只有 /bento 一个页面用它，所以它不再是
+ *   一次「跳转」，而是「回到开头」——顺手把默认跳转拦掉，省得整页重载、重播
+ *   一遍汇聚入场。
  */
 
 export function SiteHeader({
@@ -47,14 +61,17 @@ export function SiteHeader({
   productSuffix = ".tools",
   active,
   onChange,
+  onHome,
   onLogout,
 }: {
   productName?: string;
   productSuffix?: string;
   /** 当前分类 */
   active: BentoTabName;
-  /** 切分类 */
+  /** 切分类。**同一个分类不会走到这里**（页面按「无反应」处理） */
   onChange: (name: BentoTabName) => void;
+  /** 点 logo：回到网格顶部（不是跳转） */
+  onHome?: () => void;
   onLogout?: () => void;
 }) {
   const listRef = React.useRef<HTMLUListElement>(null);
@@ -82,9 +99,21 @@ export function SiteHeader({
 
   return (
     <header className="grid items-center max-sm:my-6 max-sm:gap-4 sm:h-36 sm:grid-cols-[1fr_auto] sm:px-16 md:grid-cols-[1fr_auto_1fr]">
-      {/* ---------- 左：渐变字 logo ---------- */}
+      {/* ---------- 左：渐变字 logo ----------
+          没有 onHome 时它就是个普通链接（以后如果这页头被别的页面复用，
+          行为不会莫名其妙变成「什么都不干」）；有 onHome 才拦掉默认跳转。 */}
       <h1 className="min-w-40 bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent max-md:hidden max-sm:block max-sm:text-center dark:from-surface-4 dark:to-white/10">
-        <a href="/bento">
+        <a
+          href="/bento"
+          onClick={
+            onHome
+              ? (e) => {
+                  e.preventDefault();
+                  onHome();
+                }
+              : undefined
+          }
+        >
           <strong className="text-2xl font-bold tracking-tighter xl:text-3xl">
             {productName}
           </strong>
@@ -126,6 +155,8 @@ export function SiteHeader({
                 <button
                   type="button"
                   aria-pressed={on}
+                  // 点已经选中的那个（`on`）也照样报上去，由页面统一按
+                  // 「无反应」处理 —— 判定只写在一处，别在这层再分一次叉
                   onClick={() => onChange(item.name)}
                   className="cursor-pointer"
                 >

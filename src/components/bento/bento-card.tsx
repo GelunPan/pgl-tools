@@ -47,6 +47,7 @@ export function BentoGrid({
   className,
   children,
   filterTab = "all",
+  dissolved = false,
 }: {
   className?: string;
   children: React.ReactNode;
@@ -56,6 +57,11 @@ export function BentoGrid({
    * 「筛选」这件事完整地属于网格自己（页面只管把当前分类丢进来）。
    */
   filterTab?: BentoTabName;
+  /**
+   * 「弱化提示」是否已经随滚动散尽。翻这个值的时机只有两处：
+   * 滚动越过阈值（`useBentoDim`）、点分类回顶（同一处把提示恢复）。
+   */
+  dissolved?: boolean;
 }) {
   return (
     <div
@@ -70,7 +76,7 @@ export function BentoGrid({
         className,
       )}
     >
-      <BentoFilterContext.Provider value={filterTab}>
+      <BentoFilterContext.Provider value={{ tab: filterTab, dissolved }}>
         {children}
       </BentoFilterContext.Provider>
     </div>
@@ -130,13 +136,25 @@ export function BentoCard({
   /**
    * 这张卡属于哪个分类（对应参考站的 `data-type`）。
    * 导航点了某个分类，**命中的卡会 `order: 0` 排到最前面**，未命中的
-   * `order: 1` + `blur(3px)` + `opacity: .8`，位移由 `useFlip` 做 FLIP 补间。
+   * `order: 1` 并在网格顶部时挂着 `blur(3px)` + `opacity: .8`（往下翻会渐渐散尽，
+   * 见 tabs.ts 的「消散」），位移由 `useFlip` 做 FLIP 补间。
    * 不传 = 永远命中（参考站的 `!tab || c`）。见 components/bento/tabs.ts。
    */
   dataType?: BentoCardType;
 }) {
-  const active = React.useContext(BentoFilterContext);
+  const { tab: active, dissolved } = React.useContext(BentoFilterContext);
   const matched = isCardMatched(active, dataType);
+
+  /**
+   * 未命中、**且弱化提示还没散尽** → 挂那一层模糊。
+   *
+   * 🔴 为什么不用 `blur(${dissolved ? 0 : 3}px)` 而是拆成两步：`filter` 只要
+   *    不是 `none` 就会新建一层 backdrop root，⑭ 波浪卡里那句
+   *    `mix-blend-difference` 是跟「最近的层」混色的，凭空多一层发色就会变。
+   *    所以「彻底清晰」时**必须把这个属性整个撤掉**，而不是留一个 `blur(0)`。
+   *    中间那段按滚动逐帧减弱的活交给 CSS 变量（`--bento-dim`，见 tabs.ts）。
+   */
+  const dimmed = !matched && !dissolved;
 
   // 🔴 FLIP 的时长必须与参考站一致（700ms）。它在 useLayoutEffect 里量完
   //    「新位置」后用 transform 把卡片扳回旧位置再补间 —— 所以 `order` 的
@@ -160,10 +178,12 @@ export function BentoCard({
         // `--border` 完全相同（浅 229 231 235 / 暗 51 65 85），换个名字而已。
         "relative rounded-xl border border-hairline p-2.5 text-sm shadow-bento",
         // 主题切换时卡片自身的过渡（与全局 1s 叠加，观感一致）。
-        // 🔴 同时负责「被筛掉时那层模糊」的淡入 —— 与参考站同一个 700ms。
+        // 🔴 同时负责「被筛掉时那层模糊」的淡入与「往下翻时渐渐清晰」的过渡 ——
+        //    与参考站同一个 700ms。逐帧写 --bento-dim 会抖，靠它抹成一段连续变化。
         "transition-[filter] duration-700",
-        // 筛掉之后不可点也不可选中（参考站原样：pointerEvents/userSelect 一起关）
-        !matched && "pointer-events-none select-none",
+        // 筛掉之后不可点也不可选中（参考站原样：pointerEvents/userSelect 一起关）。
+        // ⚠️ 但**散尽之后要还回来** —— 卡片都看清了还不让点，就是耍流氓。
+        dimmed && "pointer-events-none select-none",
         bare
           ? "border-none shadow-none"
           : CARD_EDGE_DARK,
@@ -174,12 +194,12 @@ export function BentoCard({
       style={{
         ...style,
         order: matched ? 0 : 1,
-        // ⚠️ 命中时刻意**不写 filter**（而不是参考站那样写 `blur(0)`）：
-        //    `filter` 只要不是 `none` 就会新建一层 backdrop root，
-        //    ⑭ 波浪卡里那句 `mix-blend-difference` 的反色是跟「最近的层」混的，
-        //    凭空多一层会让它的发色变掉。未命中时才挂 filter，模糊本来就看不见底色。
-        filter: matched ? undefined : "blur(3px)",
-        opacity: matched ? 1 : 0.8,
+        // 模糊强度 = 3px × `--bento-dim`（1 = 刚到网格顶部，0 = 已经往下翻开了）。
+        // `--bento-dim` 由 useBentoDim 写在滚动容器上，逐帧更新但**不触发 React 重渲染**，
+        // 所以卡片这里读的是 CSS 变量而不是 state；`transition-[filter]` 那 700ms
+        // 正好把逐帧的离散值抹成一段连续的「渐渐清晰」。
+        filter: dimmed ? "blur(calc(var(--bento-dim, 1) * 3px))" : undefined,
+        opacity: dimmed ? "calc(1 - var(--bento-dim, 1) * 0.2)" : 1,
       }}
     >
       {children}
