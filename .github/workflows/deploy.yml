@@ -1,24 +1,47 @@
 name: Deploy to GitHub Pages
 
+# ============================================================================
+#  触发方式：只需要 `git push origin main`，这里会自动接住 → 构建 → 发布 → 自检。
+#  推送前想先在本机跑一遍构建，用 `.\build.ps1`；
+#  想一条命令走完（提交 + 推送 + 等上线 + 冒烟），用 `.\deploy.ps1 "说明"`。
+# ============================================================================
 on:
   push:
     branches:
       - main
       # 如果你的默认分支叫 master，把上面一行换成 - master
+    # 纯文档 / 本地脚本的改动不参与站点构建，省一次无意义的 CI；
+    # 判定逻辑与 deploy.ps1 里的 $IgnoredPrefixes 保持一致。
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
+      - ".workbuddy/**"
+      - "deploy.ps1"
+      - "build.ps1"
   workflow_dispatch:
+
+# Actions 列表里直接显示「这次推的是什么」，不用点进去猜
+run-name: "🚀 ${{ github.event.head_commit.message || '手动触发部署' }}"
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
+  # ---------------------------------------------------------------- 构建
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # 连续 push 时只保留最后一次构建（旧的立刻让位，别排队烧时间）。
+    # 注意：只有 build 这一步允许被取消，正在进行的部署不会被掐断。
+    concurrency:
+      group: pages-build-${{ github.ref }}
+      cancel-in-progress: true
+    outputs:
+      site_url: ${{ steps.site.outputs.url }}
+      base_path: ${{ steps.site.outputs.base_path }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,41 +52,72 @@ jobs:
           node-version: 20
           cache: npm
 
-      # 决定构建时的路径前缀（basePath）：
+      # 一次算出两件事：构建用的 basePath、以及线上站点地址（后面 verify 要用）
+      #
+      # basePath 规则：
       #   ① 仓库已绑定自定义域名 → GitHub Pages 会把站点内容直接挂在【域名根路径】下
       #      （不再是 <user>.github.io/<repo>/ 子路径），因此 basePath 必须留空，
       #      否则 HTML 里写死的 /<repo>/_next/... 资源在域名根下会全部 404（页面白屏）。
       #   ② 仓库名就是 <owner>.github.io（用户主页站点）→ basePath 留空。
       #   ③ 其余普通项目站点 → basePath = /<repo>。
-      - name: Resolve basePath
-        id: basepath
+      - name: Resolve basePath & site URL
+        id: site
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           REPO="${{ github.event.repository.name }}"
-          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          OWNER="${{ github.repository_owner }}"
+          OWNER_LOWER=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
 
           # 读取仓库真实的自定义域名设置；查询失败时回退为空（走下面的子路径分支）
           CNAME=$(gh api "repos/${{ github.repository }}/pages" --jq '.cname // ""' 2>/dev/null || echo "")
 
           if [ -n "$CNAME" ]; then
             echo "custom domain detected: $CNAME -> site served at DOMAIN ROOT, basePath is empty"
-            echo "value=" >> "$GITHUB_OUTPUT"
+            echo "base_path=" >> "$GITHUB_OUTPUT"
+            echo "url=https://$CNAME" >> "$GITHUB_OUTPUT"
           elif [ "$REPO" = "${OWNER_LOWER}.github.io" ]; then
             echo "user site -> basePath is empty"
-            echo "value=" >> "$GITHUB_OUTPUT"
+            echo "base_path=" >> "$GITHUB_OUTPUT"
+            echo "url=https://${OWNER_LOWER}.github.io" >> "$GITHUB_OUTPUT"
           else
             echo "project site -> basePath=/$REPO"
-            echo "value=/$REPO" >> "$GITHUB_OUTPUT"
+            echo "base_path=/$REPO" >> "$GITHUB_OUTPUT"
+            echo "url=https://${OWNER_LOWER}.github.io/$REPO" >> "$GITHUB_OUTPUT"
           fi
 
+      # 用 ci 而不是 install：严格照 lockfile 装、装不上就直接报错，
+      # 避免「本地好的、线上装的却是另一个版本」这种最费时间的鬼故事。
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck (仅提示，不阻断发布)
+        run: npm run typecheck
+        continue-on-error: true
+
+      # Next 的增量构建缓存。主 key 每次都不一样（必然 miss），
+      # 靠 restore-keys 前缀兜底命中上一次 → 真正省下的是编译那一段。
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**') }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
 
       - name: Build static site
         run: npm run build
         env:
-          NEXT_PUBLIC_BASE_PATH: ${{ steps.basepath.outputs.value }}
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.site.outputs.base_path }}
+
+      # 给产物盖个「版本戳」：deploy.ps1 和 verify job 都靠它判断线上到底换没换。
+      # 放在 out/ 里不污染源码，纯静态文件，浏览器读它也无副作用。
+      - name: Stamp build info
+        run: |
+          printf '{"sha":"%s","short":"%s","ref":"%s","builtAt":"%s","runId":"%s"}\n' \
+            "$GITHUB_SHA" "${GITHUB_SHA:0:7}" "$GITHUB_REF_NAME" \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$GITHUB_RUN_ID" > out/build.json
+          cat out/build.json
 
       - name: Disable Jekyll
         run: touch out/.nojekyll
@@ -79,13 +133,93 @@ jobs:
         with:
           path: out
 
+  # ---------------------------------------------------------------- 发布
   deploy:
     runs-on: ubuntu-latest
     needs: build
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    # 部署这一步不允许被取消：中途掐断会留下半成品站点
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # ---------------------------------------------------------------- 自检
+  # 把「到底发出去没有」从人肉盯屏变成流水线的一步：
+  # 拿产物里的 build.json 反查线上，确认已经切到本次 commit，再逐路由冒烟。
+  verify:
+    runs-on: ubuntu-latest
+    needs: [build, deploy]
+    timeout-minutes: 10
+    steps:
+      - name: Wait until the new build is actually live
+        env:
+          SITE: ${{ needs.build.outputs.site_url }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -u
+          echo "site = $SITE"
+          echo "sha  = $SHA"
+          ok=0
+          for i in $(seq 1 40); do
+            body=$(curl -sS -m 10 -H 'Cache-Control: no-cache' "$SITE/build.json?t=$(date +%s)" 2>/dev/null || true)
+            if printf '%s' "$body" | grep -q "\"sha\":\"$SHA\""; then ok=1; break; fi
+            echo "  第 $i 次探测：还没切换（$(printf '%s' "$body" | head -c 80)）"
+            sleep 6
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::build.json 一直没出现本次 commit（$SHA），线上仍是旧版本（多为 CDN 缓存未过期）"
+            exit 1
+          fi
+          echo "✅ 线上已切到 $SHA"
+
+      - name: Smoke test every route
+        env:
+          SITE: ${{ needs.build.outputs.site_url }}
+        run: |
+          set -u
+          fail=0
+          for p in "" "welcome/" "login/" "signup/" "bento/" "resume/"; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -m 15 \
+              -H 'Cache-Control: no-cache' "$SITE/${p}?t=$(date +%s)" || echo "ERR")
+            if [ "$code" = "200" ]; then
+              echo "  ✅ /$p → 200"
+            else
+              echo "  ❌ /$p → $code"
+              fail=1
+            fi
+          done
+          # 字体是自托管的（红线：不许再引外部样式表），顺手确认 woff2 真能取到
+          fcode=$(curl -sS -o /dev/null -w '%{http_code}' -m 15 \
+            "$SITE/fonts/nunito-latin-400-normal.woff2" || echo "ERR")
+          if [ "$fcode" = "200" ]; then
+            echo "  ✅ 自托管字体 → 200"
+          else
+            echo "  ⚠️  自托管字体 → $fcode（不阻断发布）"
+          fi
+          if [ "$fail" = "1" ]; then
+            echo "::error::有路由没返回 200，发布不完整"
+            exit 1
+          fi
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "## 🚀 部署完成 · \`${GITHUB_SHA:0:7}\`"
+            echo ""
+            echo "| 项目 | 值 |"
+            echo "|---|---|"
+            echo "| 提交 | \`${{ github.sha }}\` |"
+            echo "| 分支 | \`${{ github.ref_name }}\` |"
+            echo "| 线上站点 | ${{ needs.build.outputs.site_url }} |"
+            echo "| 运行记录 | [查看日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
+          } >> "$GITHUB_STEP_SUMMARY"

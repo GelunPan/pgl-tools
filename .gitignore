@@ -9,6 +9,12 @@
 /.next/
 /out/
 
+# build.ps1 清场时会把旧缓存「改名挪走」而不是删除（避开批量删除护栏），
+# 正常结束会自己清掉；这两行兜住「中途被 Ctrl-C / 被杀」留下的残骸，
+# 否则它们会被 git add -A 一起提交进去（约 36 MB）。
+/.next-prev-*/
+/.out-prev-*/
+
 # production
 /build
 

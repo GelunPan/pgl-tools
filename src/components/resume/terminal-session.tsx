@@ -27,7 +27,8 @@ import Link from "next/link";
 
    ## 与参考站的差异（有意为之）
 
-   - 内容换成小潘自己的（whoami / ls / projects / experience / skills / contact / exit）；
+   - 内容换成小潘自己的（whoami / ls / cat projects.txt / cat experience.log /
+     ls skills/ / cat contact.vcf / exit），按**运维**身份写，前端只算爱好；
    - 光标闪烁复用 globals.css 的 `.typed-cursor--blink`（50% 硬切，真终端的样子）；
    - 窗口加了一个入场动效 `.resume-win`（reduce 下掐掉）。
 
@@ -253,7 +254,7 @@ export function TerminalSession() {
             <i aria-hidden="true" className="block size-3 cursor-not-allowed rounded-full bg-yellow-400" />
             <i aria-hidden="true" className="block size-3 cursor-not-allowed rounded-full bg-green-500" />
           </span>
-          <span className="text-center text-gray-400">xiaopan@MacBook-Air:~</span>
+          <span className="text-center text-gray-400">xiaopan@ops-node:~</span>
           <span className="text-end text-gray-500">⌥⌘1</span>
         </header>
 
@@ -268,12 +269,15 @@ export function TerminalSession() {
               <p>
                 你好，我是 <strong className={strongC}>潘葛伦</strong>
                 （大家都叫我小潘），一个住在
-                <strong className={strongC}>广州</strong>的前端工程师。
+                <strong className={strongC}>广州</strong>的运维工程师。
               </p>
               <p className="mt-2">
-                我喜欢把日常小工具做成萌萌的、会动的界面 —— 手头这个
-                <code className={codeC}>苹果绿的工具箱</code>
-                就是证据：登录页有一只可以撸的黑猫，工具箱格子里还住着另一只。
+                白天的工作是让服务器别在半夜给我打电话 —— 巡检、监控、告警、部署、排障，
+                能脚本化的绝不手点第二遍。
+              </p>
+              <p className="mt-2">
+                至于前端（还有登录页那只可以撸的黑猫、满屏的动效），纯粹是业余爱好：
+                手头这个 <code className={codeC}>苹果绿的工具箱</code> 就是证据。
               </p>
             </TypedContent>
 
@@ -291,26 +295,26 @@ export function TerminalSession() {
             {/* cat projects.txt */}
             <TypedText command="cat projects.txt" />
             <TypedContent>
-              <p>工具箱里常驻的几个小零件：</p>
+              <p>工具箱里常驻的几个小零件（顺手给日常排障做的）：</p>
               <ul className="mt-3 space-y-0.5">
                 <li className={`font-bold ${strongC}`}>▸ 时间戳转换</li>
-                <li>和 Unix 时间戳讲和的小计算器</li>
+                <li>排障时一眼看懂日志里那一串数字</li>
               </ul>
               <ul className="mt-3 space-y-0.5">
                 <li className={`font-bold ${strongC}`}>▸ JSON 格式化</li>
-                <li>把压缩饼干摊开、摆整齐</li>
+                <li>接口返回一团糊？摊开、摆整齐</li>
               </ul>
               <ul className="mt-3 space-y-0.5">
                 <li className={`font-bold ${strongC}`}>▸ 颜色工具</li>
-                <li>调出「苹果绿」的那把尺</li>
+                <li>写页面时顺手调个色（爱好用途）</li>
               </ul>
               <ul className="mt-3 space-y-0.5">
                 <li className={`font-bold ${strongC}`}>▸ 文本对比</li>
-                <li>一眼看出这两段话到底改了哪</li>
+                <li>一眼看出两份配置到底改了哪一行</li>
               </ul>
               <ul className="mt-3 space-y-0.5">
                 <li className={`font-bold ${strongC}`}>▸ 正则测试</li>
-                <li>和通配符斗智斗勇的练武场</li>
+                <li>捞日志、洗数据的老伙计</li>
               </ul>
             </TypedContent>
 
@@ -318,16 +322,19 @@ export function TerminalSession() {
             <TypedText command="cat experience.log" />
             <TypedContent>
               <p>
-                <span className="text-gray-400">2023 → now</span> ｜ 前端开发
+                <span className="text-gray-400">2023 → now</span> ｜ 运维 / SRE
               </p>
               <p className="mt-2">
-                日常在
-                <code className={codeC}>React</code>/
-                <code className={codeC}>Next.js</code>
-                里搬砖，偶尔钻进
-                <code className={codeC}>CSS 动画</code>
-                的兔子洞里不出来 —— 比如为了复刻一个掉落动画，
-                把别人的代码翻了个底朝天。
+                日常和
+                <code className={codeC}>Linux</code>、
+                <code className={codeC}>Nginx</code>、
+                <code className={codeC}>Docker</code>、
+                <code className={codeC}>K8s</code>
+                还有一堆监控面板打交道：告警响了先翻日志，再谈重启。
+              </p>
+              <p className="mt-2">
+                <code className={codeC}>前端</code>
+                纯属爱好 —— 比如为了复刻一个掉落动画，把别人的代码翻了个底朝天。
               </p>
             </TypedContent>
 
@@ -336,14 +343,17 @@ export function TerminalSession() {
             <TypedContent>
               <div className="flex flex-wrap gap-2">
                 {[
-                  "JavaScript",
-                  "TypeScript",
-                  "React",
-                  "Next.js",
-                  "Tailwind CSS",
-                  "CSS 动画",
-                  "Node.js",
+                  "Linux",
+                  "Shell",
+                  "Python",
+                  "Docker",
+                  "Kubernetes",
+                  "Nginx",
+                  "Prometheus",
+                  "Grafana",
+                  "CI / CD",
                   "Git",
+                  "前端（爱好）",
                 ].map((s) => (
                   <code key={s} className="rounded bg-gray-700 px-1.5 py-0.5 text-white">
                     {s}

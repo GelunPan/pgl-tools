@@ -19,7 +19,7 @@ import { TerminalSession } from "@/components/resume/terminal-session";
 
 export const metadata: Metadata = {
   title: "小潘的简历 · 终端版",
-  description: "xiaopan@MacBook-Air:~ 的一段终端会话",
+  description: "xiaopan@ops-node:~ 的一段终端会话",
 };
 
 export default function ResumePage() {

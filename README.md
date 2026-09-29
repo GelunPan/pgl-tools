@@ -45,7 +45,7 @@
   | **黑猫**（第 2 格） | **一只可以撸的黑猫**（本项目自己加的彩蛋，参考站没有）：照小潘给的写实风黑猫参考图做的 —— **暖调炭黑毛 `#302D26` + 黄绿眼 `#C6D74F`**、短圆耳、深色鼻嘴胡须（**没有**项圈/铃铛/腮红/白肚子），背景是参考图那种**奶油米色**。眼睛**跟着鼠标转**，鼠标在页面任何位置都盯得住；点一下 → 眯眼笑 + 冒气泡（文案按次数轮换）；**1.6 秒内连点 7 下** → 爱心/星星/爪印**分两轮齐飞** + 转圈跳 + 吐舌头 + 「喵喵喵！被你发现了 🎉」。尾巴、头顶呆毛、一层暖光一直在动。**彩蛋有 0.5s 保护期**：手快补点不会把它点没 |
   | 页头胶囊导航 | 白块**滑动**指示器（700ms 缓动）+ **分类切换**：点「工具箱 / 标签 / 项目 / 关于」→ 命中的卡片**滑到最前排**（`order` 重排 + FLIP 补间，照参考站逐字节复刻），其余卡片模糊弱化；点「全部」恢复 |
   | SKILLS 挂钩板 | **真的 2D 刚体模拟**：16 个技术徽章**一开始全部隐藏，然后一颗颗出现掉落**（参考站同款节奏），被 13 个挂钩弹开、堆在底部（可点左上角按钮重来） |
-  | 终端 | 打字机循环（`vim` → `cat resume` → `ls tools`），停手时光标硬切闪烁；**点一下真的执行并跳转** —— 回车 → 逐行吐输出 + 绿光扫屏 → 进入 **`/resume` 简历终端**（macOS 终端窗：红黄绿三灯 + 逐字打字的会话） |
+  | 终端 | 打字机循环（`uptime` → `cat resume` → `ls /opt/tools`，运维向话术），停手时光标硬切闪烁；**点一下真的执行并跳转** —— 回车 → 逐行吐输出 + 绿光扫屏 → 进入 **`/resume` 简历终端**（macOS 终端窗：红黄绿三灯 + 逐字打字的会话） |
   | 问候气泡 | 「对方正在输入…」三个跳动的点，3s 后接力换成「你好，我是小潘」 |
   | 字体矩阵 | 悬停整卡 → 所有字形一起转 360° |
   | Pinned 便签 | 悬停 → 纸面 + 两层投影一起放大 1.03 倍，像翘起一角 |
@@ -106,9 +106,11 @@ npm run dev      # http://localhost:9002
 | --- | --- |
 | `npm run dev:fresh` | **dev 页面报错 / 白屏时先试这个**：清掉 `.next` 缓存再启动 |
 | `npm run clean` | 只清 `.next` 构建缓存（可随时再生成，不丢代码） |
-| `npm run build` | 生成静态站点到 `out/` |
+| `npm run build` | 生成静态站点到 `out/`（本机建议用下面的 `.\build.ps1`） |
 | `npm run lint` | ESLint 检查 |
 | `npm run typecheck` | TypeScript 类型检查 |
+| `.\build.ps1` | **本地构建到 `out/`**。把本机三个坑都封好了：不会报 `EPERM`、不吃删除配额、会提醒 dev 冲突 |
+| `.\deploy.ps1 "说明"` | **一键发布**：提交 → 推送 → 等上线 → 6 路由冒烟 |
 
 > 🔴 **同一个项目同时只能开一个 dev server**。两个一起开会把共用的 `.next` 写坏，
 > 页面变成 `Cannot find module './chunks/ssr/[turbopack]_runtime.js'` —— 就是缓存被覆盖了，
@@ -147,7 +149,17 @@ npx serve out
 | 旧地址 | https://gelunpan.github.io/pgl-tools/ → 301 自动跳到上面的域名 |
 | 部署流水线 | https://github.com/GelunPan/pgl-tools/actions |
 
-推送 `main` 分支后，`.github/workflows/deploy.yml` 会自动构建并发布，无需任何手动操作。
+推送 `main` 分支后，`.github/workflows/deploy.yml` 会自动构建并发布，**不需要再做任何别的事**。
+流水线分三步跑：
+
+| Job | 做什么 |
+| --- | --- |
+| `build` | 装依赖（`npm ci`）→ 构建 → 往产物写 `build.json`（含本次 commit SHA）。**连推多次时旧的构建立刻让位**，不排队 |
+| `deploy` | 发布到 GitHub Pages。这一步**不允许被取消**（中途掐断会留下半成品站点） |
+| `verify` | 上线自检：轮询线上 `build.json` 确认真的换了版本，再冒烟 6 个路由 |
+
+> ⚠️ 只改 `*.md` / `LICENSE` / `.workbuddy/*` / `deploy.ps1` / `build.ps1` 时，
+> **不会触发构建**（省 CI 时间）。需要立刻发一次的话，去 Actions 页面点 `Run workflow`。
 
 工作流会**自动判断站点挂在哪种路径下**并注入正确的 `basePath`：
 
@@ -171,8 +183,27 @@ npx serve out
 .\deploy.ps1 "说明这次改了什么"
 ```
 
-它会自动完成 `git add` → `git commit` → `git push`，然后 GitHub Actions 会自动重新构建发布，
-大约 1 分钟后线上就是新版本。
+它会依次做：
+
+| 步骤 | 做什么 |
+| --- | --- |
+| 0 | 检查确实在项目里、且分支就是 `main` |
+| 1 | 类型检查（不想看就加 `-SkipCheck`） |
+| 2 | 可选：本地先构建一遍（加 `-Build`） |
+| 3 | `git add -A` + `git commit` |
+| 4 | `git push`（标准姿势失败会自动换 openssl 后端重试） |
+| 5 | **轮询线上，直到确认真的换成了这次提交** |
+| 6 | 冒烟 6 个路由 + 自托管字体 |
+
+跑完看到「线上已切到 `xxxxxxx`」+ 6 个 ✅，就是真的上线了，不用再去开浏览器确认。
+
+常用变体：
+
+| 想干什么 | 命令 |
+| --- | --- |
+| 推上去就行，不想站着等 | `.\deploy.ps1 "说明" -NoWatch` |
+| 发之前先本地构建验一遍 | `.\deploy.ps1 "说明" -Build` |
+| 只构建，不发布 | `.\build.ps1` |
 
 > 如果提示脚本被禁止运行，用这条：
 > ```powershell
@@ -217,12 +248,13 @@ NEXT_PUBLIC_BASE_PATH="/<仓库名>" npm run build
 | | 本地开发 | 线上站点 |
 | --- | --- | --- |
 | 命令 | `npm run dev` | `.\deploy.ps1 "说明"` |
-| 生效速度 | 保存文件后**秒级**热更新 | 提交推送后**约 1 分钟** |
+| 生效速度 | 保存文件后**秒级**热更新 | 提交推送后**约 2～4 分钟**（脚本会等它好） |
 | 谁能看到 | 只有你自己（`localhost:9002`） | 所有人（`gelun.eu.cc`） |
 | 是否自动 | 是，不用做别的 | 否，**每次都要推一次** |
 
 > 🔴 **改代码不会让线上页面实时变化。** 线上是一堆已经构建好的静态文件，
 > 必须推送后由 GitHub Actions 重新构建才会更新。
+> 好消息是 `.\deploy.ps1` 会一直等到确认新版本真的上线，你只需要看它最后那几行。
 
 ### 常见改动对应文件
 
@@ -272,8 +304,8 @@ NEXT_PUBLIC_BASE_PATH="/<仓库名>" npm run build
 
 ```powershell
 npm run dev              # 1. 本地看效果，边改边刷新（秒级）
-npm run build            # 2. 可选：确认能正常构建
-.\deploy.ps1 "说明"       # 3. 满意后推到线上（约 1 分钟后生效）
+.\build.ps1              # 2. 可选：确认能正常构建（推荐，见 PROJECT.md §5.4.1）
+.\deploy.ps1 "说明"       # 3. 满意后推到线上并确认落地（见 PROJECT.md §5.4.2）
 ```
 
 ---
@@ -284,8 +316,9 @@ npm run build            # 2. 可选：确认能正常构建
 .
 ├── PROJECT.md                     # 📄 完整技术说明书（给 AI / 新接手的人看）
 ├── README.md                      # 本文件：日常操作说明
-├── .github/workflows/deploy.yml   # GitHub Pages 自动部署
-├── deploy.ps1                     # 一键发布脚本
+├── .github/workflows/deploy.yml   # GitHub Pages 自动部署（build → deploy → verify）
+├── build.ps1                      # 本地构建脚本（封装了本机的三个坑）
+├── deploy.ps1                     # 一键发布脚本（提交 → 推送 → 等上线 → 冒烟）
 ├── public/
 │   ├── .nojekyll                  # 关闭 GitHub Pages 的 Jekyll 处理
 │   └── brands/*.svg               # 16 个技术 logo（Simple Icons，CC0，本地托管）

@@ -129,7 +129,7 @@ const GLYPHS_ALWAYS_VISIBLE = new Set([0, 1, 2, 12, 13, 14]);
 
 /** 标签芯片：文字 + 主色（芯片用 `主色33` 做底、主色做 2px 描边，参考站的做法） */
 const TAGS: Array<[string, string]> = [
-  ["前端", "#61dafb"],
+  ["运维", "#2496ed"],
   ["工具", "#f7df1e"],
   ["动效", "#ff9800"],
   ["TypeScript", "#3178c6"],

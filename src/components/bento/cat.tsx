@@ -35,7 +35,7 @@ import { usePetSequence } from "@/hooks/use-pet";
    | 毛（受光面） | `#3A362D` | 口鼻区 / 胸口 / 前腿 —— 比主色亮一档，撑出体积感 |
    | 毛（纹理） | `#413C31` | 身上那几笔短毛（参考图也有这种手绘笔触） |
    | 眼（虹膜） | `#C6D74F` | **黄绿**（参考图就是黄绿的，不是琥珀黄）；上缘再叠 `#DCE566` |
-   | 眼（竖缝） | `#14120F` | 细竖缝，外面套一圈 `#16130F` 描边当眼眶 |
+   | 眼（瞳孔） | `#14120F` | **大圆瞳孔**（2026-09-29 由细竖缝改成圆的），外面套一圈 `#16130F` 描边当眼眶 |
    | 鼻 / 嘴 / 趾缝 | `#584F4B` / `#16130F` | 一律**深色**（参考图的黑猫没有粉色鼻子） |
    | 耳内 | `#4A4038` | 暗暖褐，不是粉色 |
    | 胡须 | `#4A4438` | **深色胡须**，画在奶油底色上才看得见 |
@@ -97,11 +97,12 @@ export function BentoCat() {
     // 降级：不做跟随（猫照常显示、照常能点）
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-    /** 竖缝瞳孔的最大位移（SVG 用户单位，viewBox 200）。
-        上限：虹膜 rx 14.5 / 眼缝 rx 4.6 → 水平最多 9.9；ry 16.5 / 11 → 最多 5.5。
-        取 6.5 / 4 留余量 —— 大高光（圆心相对眼缝偏 4 / -6.5，半径 3.4）
-        最远探到 14.2 < 14.5，不会从虹膜边缘探出去。 */
-    const MAX_X = 6.5;
+    /** 圆瞳孔的最大位移（SVG 用户单位，viewBox 200）。
+        上限：虹膜 rx 14.5 / ry 16.5，瞳孔半径 9 →
+        取 4.6 / 4 留余量（4.6 + 9 = 13.6 < 14.5，瞳孔斜看时边缘还剩一圈虹膜）。
+        大高光半径 3.4 会从瞳孔右上角探出去一点点，压在虹膜上 —— 那是「水汪汪」
+        的来源（参考图就是一颗高光跨在瞳孔边缘），不是没对齐。 */
+    const MAX_X = 4.6;
     const MAX_Y = 4;
     let raf = 0;
 
@@ -254,7 +255,7 @@ export function BentoCat() {
           {/* 口鼻区：比主色亮一档的暖灰，小小一团就够 */}
           <ellipse cx="140" cy="118" rx="16" ry="11" fill="#3A362D" />
 
-          {/* ---- 眼睛：**超大**黄绿虹膜 + 细竖缝（参考图眼睛占半张脸）---- */}
+          {/* ---- 眼睛：**超大**黄绿虹膜 + 大圆瞳孔（参考图眼睛占半张脸）---- */}
           {happy ? (
             /* 眯眼笑 ^ ^。🔴 必须是**亮色** —— 深色画在黑脸上等于没画。
                用状态切换而不是动画 —— 连点也能立刻看到反馈 */
@@ -302,17 +303,18 @@ export function BentoCat() {
               <ellipse cx="160" cy="89.5" rx="9.5" ry="7" fill="#DCE566" opacity="0.8" />
               <ellipse cx="120" cy="104.5" rx="10.5" ry="5" fill="#A9BE3D" opacity="0.55" />
               <ellipse cx="160" cy="104.5" rx="10.5" ry="5" fill="#A9BE3D" opacity="0.55" />
-              {/* 竖缝 + 一大一小两处高光：整组跟着 --gaze-x / --gaze-y 走。
-                  两处高光是「水汪汪」的关键，一颗高光看着像塑料珠。 */}
+              {/* 大圆瞳孔 + 一大一小两处高光：整组跟着 --gaze-x / --gaze-y 走。
+                  两处高光是「水汪汪」的关键，一颗高光看着像塑料珠。
+                  🔴 瞳孔改成圆的之后，位移上限要跟着收 —— 见上面 MAX_X / MAX_Y。 */}
               <g className="cat-eye-gaze">
-                <ellipse cx="120" cy="96" rx="4.6" ry="11" fill="#14120F" />
-                <circle cx="124" cy="89.5" r="3.4" fill="#FFFFFF" opacity="0.95" />
-                <circle cx="116.5" cy="103" r="1.7" fill="#FFFFFF" opacity="0.55" />
+                <circle cx="120" cy="96" r="9" fill="#14120F" />
+                <circle cx="124" cy="90" r="3.4" fill="#FFFFFF" opacity="0.95" />
+                <circle cx="116.5" cy="102.5" r="1.8" fill="#FFFFFF" opacity="0.55" />
               </g>
               <g className="cat-eye-gaze">
-                <ellipse cx="160" cy="96" rx="4.6" ry="11" fill="#14120F" />
-                <circle cx="164" cy="89.5" r="3.4" fill="#FFFFFF" opacity="0.95" />
-                <circle cx="156.5" cy="103" r="1.7" fill="#FFFFFF" opacity="0.55" />
+                <circle cx="160" cy="96" r="9" fill="#14120F" />
+                <circle cx="164" cy="90" r="3.4" fill="#FFFFFF" opacity="0.95" />
+                <circle cx="156.5" cy="102.5" r="1.8" fill="#FFFFFF" opacity="0.55" />
               </g>
             </>
           )}

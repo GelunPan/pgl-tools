@@ -16,10 +16,10 @@
 | 有后端吗 | **完全没有**。没有服务器、没有数据库、没有 API 请求、没有第三方鉴权 |
 | 数据存哪 | 浏览器的 `localStorage`（明文，仅演示用） |
 | 技术栈 | Next.js 15 App Router + `output: "export"` 静态导出 + React 18 + TypeScript + Tailwind CSS |
-| 构建产物 | 纯静态文件，`out/` 目录，约 **1.7 MB / 73 个文件**（含自托管字体 10 个、技术 logo 16 个） |
+| 构建产物 | 纯静态文件，`out/` 目录，**76 个文件 / 约 1.5 MB**（2026-09-29 本机实测；含自托管字体 10 个、技术 logo 16 个） |
 | 部署在哪 | GitHub Pages —— **https://gelun.eu.cc/**（自定义域名 + Cloudflare 代理） |
 | 旧地址 | `https://gelunpan.github.io/pgl-tools/` → **301 自动跳转**到新域名，不会失效 |
-| 怎么发布 | 本地跑 `.\deploy.ps1 "说明"` → 推送 → GitHub Actions 自动构建部署（约 1 分钟） |
+| 怎么发布 | 一条命令：`.\deploy.ps1 "说明"` → 提交 → 推送 → Actions 自动构建发布 → **轮询线上确认已切成新版本** → 6 路由冒烟（详见 §5.4） |
 | 上线状态 | ✅ **已上线**（`8f2022b`，2026-09-24）：5 个路由全 200、字体自托管生效、登录 → `/bento` 汇聚动效线上跑通、JS 错误 0 |
 | 源码规模 | `src/` 下 **37 个文件**（含 1 个 favicon）；`public/` 下 27 个（16 个技术 logo + 10 个自托管字体） |
 | 页面 | `/`（跳登录）、`/login/`、`/signup/`、**`/bento/`**（工具箱主页 = 登录落点）、`/resume/`（终端简历）、`/welcome/`（早期测试页） |
@@ -125,9 +125,10 @@ npx serve out                        # 本地预览构建产物
 careercompass-main/
 ├── PROJECT.md                      ← 本文档
 ├── README.md                       ← 面向人的使用说明（含文案改动速查表）
-├── deploy.ps1                      ← 一键发布脚本（add → commit → push → 校验）
+├── deploy.ps1                      ← 一键发布脚本（提交 → 推送 → 等上线 → 冒烟，见 §5.4）
+├── build.ps1                       ← 本地构建脚本（绕开本机的三个坑，产出 out/，见 §5.4.1）
 │
-├── .github/workflows/deploy.yml    ← GitHub Actions 自动构建部署流水线
+├── .github/workflows/deploy.yml    ← GitHub Actions 自动构建部署流水线（build → deploy → verify）
 ├── .gitignore                      ← 排除 node_modules / .next / out / .env* / .workbuddy
 ├── .gitattributes                  ← 统一 LF 换行
 ├── public/.nojekyll                ← 关闭 GitHub Pages 的 Jekyll 处理
@@ -745,7 +746,7 @@ JS 错误      无 ✅                                无 ✅
 | 字体加载方式 | `next/font` 体系 | **自托管 woff2**（`public/fonts/` + `src/lib/fonts.ts` 注入 `@font-face`） | ① `output: "export"` 下 `next/font/google` 会在**构建期**抓网络，CI / 沙箱拿不到就构建失败；② 它原来用 CDN `<link>`，**渲染阻塞**，国内网络下会把首屏挂成黑屏（§8.7），所以 2026-09-24 改成自托管 |
 | 页面滚动 | `body` 直接滚 | 内层 `h-full overflow-y-auto` | 本项目的 `html, body` 有 `overflow: hidden`（登录页要的），不去动全局 |
 | 第 16 格 | 掘金 logo + 掘金链接 | 自绘 `GlobeIcon` + `gelun.eu.cc` | 那格是「本站的另一个入口」，换成自己的站 |
-| 终端话术 | `ls resume` | `ls tools` | 跟着内容走（行为、时序、光标闪烁完全照抄） |
+| 终端话术 | `ls resume` | `uptime` / `cat resume` / `ls /opt/tools` | 跟着内容走（行为、时序、光标闪烁完全照抄；话术按**运维**身份写） |
 | 入场动效机制 | 每张卡带 `style="filter:blur(0);opacity:1;order:0"`，靠改这几个值 + `order` 重排 | 自研 `use-converge-in`（方向 + 统一距离 + 错峰） | 它的做法拿不到源码看不清参数；我们那条链路要多接一拍登录幕布，见 4.7.8 |
 | 边框颜色写法 | 裸 `border`（靠 Tailwind 默认色 `#e5e7eb`） | `border-hairline`（`--hairline` = 同一组值） | 本项目里裸 `border` 会回退到 `currentColor`，浅色下变成一道深灰实线，太抢眼 |
 
@@ -1012,14 +1013,18 @@ transform**（起步 `matrix(1,0,0,1,-624,-624)` → 缓动归位）—— 证�
 #### 4.7.11 终端打字机（自己实现的 typed.js 行为）
 
 `src/components/bento/terminal.tsx`。逐字敲、逐字删、循环三句
-（`vim` → `cat resume` → `ls tools`）。参数：`TYPE_MS=130`、`BACK_MS=70`、
+（`uptime` → `cat resume` → `ls /opt/tools`）。参数：`TYPE_MS=130`、`BACK_MS=70`、
 `HOLD_MS=1600`、`AFTER_MS=420`。
+
+> **话术是运维向的**（2026-09-29 小潘：「我是运维人员，不是前端开发，把那个仿 macOS
+> 的命令行风格的语句改一下，主要围绕运维来写，前端只是兴趣爱好」）。所以三句换成
+> 巡检机器 / 看身份 / 翻工具箱，输出里也写明「广州 / 运维 / 前端只是爱好」。
 
 > 参考站用的是 typed.js（由它的 `typed-cursor` / `typedjsBlink` 类名推出来）。
 > 那句循环的话术是**实测出来的**：抓了 14 次文本，序列是
 > `` `ls res` → ``（清空）→ `vim` → `cat` → `cat res` → `cat resume` → `cat resum` ``，
 > 说明它在 `vim` / `cat resume` / `ls` 三句之间来回敲和删。这里照这个**行为**复刻，
-> 只是把话术换成自己站的 `ls tools`。
+> 只是把话术换成自己站的内容。
 
 > 🔴 **光标闪烁用 `typed-cursor--blink`（`50% { opacity: 0 }` 硬切），不是淡入淡出。**
 > 淡的会像呼吸灯，只有硬切才像终端光标。
@@ -1047,7 +1052,8 @@ transform**（起步 `matrix(1,0,0,1,-624,-624)` → 缓动归位）—— 证�
 - **窗口**：`#282935` 全屏底上居中一张 `rounded-2xl border shadow-2xl` 终端窗
   （入场动效 `.resume-win`，reduce 掐掉）；标题栏 `grid-cols-[1fr_2fr_1fr]`：
   **红黄绿三灯**（红灯 = 关闭 = 回 `/bento` 的链接，hover 显 ✕；黄/绿
-  `cursor-not-allowed`）、中间 `xiaopan@MacBook-Air:~`、右边 `⌥⌘1`。
+  `cursor-not-allowed`）、中间 `xiaopan@ops-node:~`（2026-09-29 由 `MacBook-Air`
+  改成运维味的 `ops-node`）、右边 `⌥⌘1`。
 - **打字动效 = 三块积木**（照参考站 Typed / TypedText / TypedContent 复刻）：
   `Typed` 容器持有索引，只渲染前 `step+1` 个子元素；`TypedText` 等 600ms 后
   **逐字打出**（110~190ms/字随机抖动，打字中显示 `~` + 闪烁 `█`，打完变粗斜体）；
@@ -1057,6 +1063,12 @@ transform**（起步 `matrix(1,0,0,1,-624,-624)` → 缓动归位）—— 证�
   **内容不依赖动画才可见**（§6.4 老规矩）。
 - 内容：`Last login` → whoami → `ls` → `cat projects.txt` → `cat experience.log`
   → `ls skills/` → `cat contact.vcf` → `exit`（链接回 `/bento` + 常驻光标）。
+  🔴 **话术按「运维工程师」身份写**（2026-09-29 小潘：「我是运维人员，不是前端开发……
+  主要围绕运维来写，前端只是兴趣爱好」）：whoami 说运维；`experience.log` 是
+  运维 / SRE；`ls skills/` 换成 Linux / Shell / Docker / K8s / Prometheus / Grafana
+  这一套，**末尾挂一个 `前端（爱好）` 的 tag**；`projects.txt` 的五个工具也改成
+  排障视角的描述；标题栏用户名是 `xiaopan@ops-node:~`。
+  **改文案时别再写回「前端工程师」**。
 
 > 🔴 **终端永远深色**（配色照参考站写死：底 `#282935`、标题栏 `zinc-700`、
 > 正文 `gray-200`、链接 `sky-500`，不接主题切换）。
@@ -1247,7 +1259,7 @@ export function asset(path: string) {
 | 毛（受光面） | `#3A362D` | 口鼻区 / 胸口 / 前爪 —— 比主色亮一档，用来撑出体积感；同色会糊成一整块 |
 | 毛（纹理） | `#413C31` | 背上那几笔短毛（参考图也有这种手绘笔触） |
 | 眼（虹膜） | `#C6D74F` | **黄绿**（参考图就是黄绿的，不是琥珀黄）；上缘再叠一层 `#DCE566`（0.75）做层次 |
-| 眼（竖缝） | `#14120F` | 细窄竖缝；外面套一圈 `#16130F` 描边当眼眶（第 2 格侧躺那只宽 `2` / 登录页坐姿那只宽 `1.8`） |
+| 眼（瞳孔） | `#14120F` | **大圆瞳孔**（2026-09-29 由细竖缝改成圆的，小潘：「把那个猫咪的瞳孔改成圆的，大瞳孔，不是扁的」）。每只眼一颗 `circle`，侧躺那只 `r=9`、登录页那只 `r=6.8`；外面套一圈 `#16130F` 描边当眼眶（宽 `2` / `1.8`） |
 | 鼻 / 嘴 / 趾缝 | `#584F4B` / `#16130F` | 一律**深色** —— 参考图的黑猫没有粉色鼻子 |
 | 耳内 | `#4A4038` | 暗暖褐，不是粉色 |
 | 胡须 / 胡须孔 | `#4A4438` / `#2A2620` | **深色胡须**，画在奶油底色上才看得见 |
@@ -1291,13 +1303,14 @@ export function asset(path: string) {
    （整只 SVG 猫）重渲染。现在是在 `requestAnimationFrame` 里直接
    `el.style.setProperty("--gaze-x", …)`，React 完全不参与。
    🔴 **「动的只有瞳孔，眼球不动」** —— 那颗黄绿虹膜是**静止**的（它就是这个猫的眼球），
-   跟着鼠标走的是 `.cat-eye-gaze` 里那组「竖缝 + 两处高光」。整颗眼球跟着滑，
+   跟着鼠标走的是 `.cat-eye-gaze` 里那组「瞳孔 + 两处高光」。整颗眼球跟着滑，
    看着像眼珠在眼皮底下整体位移，很怪。
-   上限也不是拍脑袋：虹膜 `rx` / 眼缝 `rx` 之差就是水平余量，`ry` 之差是垂直余量 ——
-   第 2 格 `12.5 / 2.2` → 最多 10.3、`14 / 9.5` → 最多 4.5，取 **5.2 / 3.2**；
-   登录页 `11 / 1.9` → 9.1、`12 / 8` → 4.0，取 **4.6 / 2.8**。
-   再大高光就会从虹膜边缘探出去，变成贴在黑毛上的一块白斑
-   （高光圆心相对眼缝还额外偏了一点）。
+   上限也不是拍脑袋：**虹膜半径 − 瞳孔半径** 就是余量（圆瞳孔横竖同径）——
+   第 2 格 `14.5 − 9 = 5.5`（垂直 `16.5 − 9 = 7.5`），取 **4.6 / 4**；
+   登录页 `11 − 6.8 = 4.2`（垂直 `12 − 6.8 = 5.2`），取 **4.0 / 2.8**。
+   再大瞳孔就会从虹膜边缘探出去，看着像贴在黑毛上的一块黑斑。
+   ⚠️ 2026-09-29 瞳孔由「细竖缝」改成「大圆瞳孔」后，这两组上限**跟着收紧过**
+   （原先是 6.5 / 4 与 4.6 / 2.8）—— 竖缝窄、能滑得多，圆瞳孔胖，余量自然小。
 
 2. **`transform-origin` 必须配 `transform-box: view-box`。** 尾巴 / 身体 / 呆毛
    用的都是 `rotate` / `scale`，而 SVG 元素的 `transform-origin` 默认按
@@ -1429,12 +1442,12 @@ JS 错误：/bento 0 | /login 0
 | 想改什么 | 在哪 |
 |---|---|
 | 毛色 / 形状 | 两个组件各自的 SVG。炭黑 `#302D26`、受光面 `#3A362D`、纹理 `#413C31`、黄绿瞳 `#C6D74F`、耳内 `#4A4038`、深胡须 `#4A4438` |
-| 眼睛的形状 | 那颗「黄绿虹膜」是 `.cat-iris` 的两个 `ellipse`（**静止**）；动的只有 `.cat-eye-gaze` 里的竖缝 + 两处高光 |
+| 眼睛的形状 | 那颗「黄绿虹膜」是 `.cat-iris` 的两个 `ellipse`（**静止**）；动的只有 `.cat-eye-gaze` 里的大圆瞳孔 + 两处高光 |
 | 眼眶描边粗细 | `cat.tsx` 两处 `strokeWidth="2"` / `login-cat.tsx` 两处 `strokeWidth="1.8"`（调粗会显得猫在瞪人） |
 | 耳朵 | `cat.tsx`（`M68 69 L74 42 L80 59 Z`）与 `login-cat.tsx`（`M47 30 L53 4 L60 21 Z`）里那两个 `.cat-ear` 的 path |
 | 连点次数 / 判定窗口 / 保护期 | 组件里传给 `usePetSequence` 的参数（`eggCount` / `windowMs` / `eggCooldownMs`） |
 | 气泡文案 | 两个文件顶部的 `HAPPY_TEXTS` 与 `eggText` |
-| 瞳孔幅度 | `MAX_X` / `MAX_Y`（第 2 格 5.2 / 3.2；登录页 4.6 / 2.8） |
+| 瞳孔幅度 | `MAX_X` / `MAX_Y`（第 2 格 4.6 / 4；登录页 4.0 / 2.8 —— 大圆瞳孔版，见 4.7.x 的余量推导） |
 | 尾巴摆幅 / 呼吸 / 呆毛 / 暖光 | `globals.css` 的 `@keyframes cat-tail` / `cat-breathe` / `cat-tuft` / `cat-glow` |
 | 彩蛋时长 | `cat-party` 是 `1.5s × 2 = 3.0s`，**必须与 `partyMs: 3000` 保持一致** |
 | 猫摆在框上的位置 / 大小 | `login-cat.tsx` 的 `left-[8%] top-[-70px] h-[76px] w-[104px]`（改之前先跑 `measure-login2.js`） |
@@ -1557,23 +1570,71 @@ GET https://gelun.eu.cc/_next/...css           -> 200                        ✅
 
 **触发条件**：`push` 到 `main` 分支，或手动 `workflow_dispatch`。
 
+**唯一需要人工做的动作就是 push**。剩下全由流水线接手：
+
 ```
-┌─ Job: build（ubuntu-latest）────────────────────────────────────┐
+┌─ 触发 ──────────────────────────────────────────────────────────┐
+│ push 到 main。paths-ignore 命中「纯文档 / 本地脚本」时跳过构建，   │
+│ 不烧 CI 时间；同分支连推多次时，旧 build 立刻让位（见下方并发组）   │
+└─────────────────────────────────────────────────────────────────┘
+                            ▼
+┌─ Job: build（ubuntu-latest · timeout 15min · 组 pages-build-<ref>）┐
 │ 1. actions/checkout@v4                                          │
 │ 2. actions/setup-node@v4  → node 20 + npm cache                 │
-│ 3. Resolve basePath       → 已绑自定义域名则留空，否则 /<repo>     │
-│ 4. npm install --no-audit --no-fund                             │
-│ 5. npm run build          → 注入 NEXT_PUBLIC_BASE_PATH → out/    │
-│ 6. touch out/.nojekyll    → 防止 Jekyll 忽略 _next/ 目录          │
-│ 7. actions/configure-pages@v5（enablement: true）→ 自动开 Pages   │
-│ 8. actions/upload-pages-artifact@v3  → 上传 out/ 作为 artifact     │
+│ 3. Resolve basePath & site URL → 已绑域名则留空，否则 /<repo>      │
+│ 4. npm ci --no-audit --no-fund                                  │
+│ 5. npm run typecheck      → 仅提示（continue-on-error），不拦发布  │
+│ 6. actions/cache@v4       → 缓存 .next/cache，命中则增量编译      │
+│ 7. npm run build          → 注入 NEXT_PUBLIC_BASE_PATH → out/    │
+│ 8. Stamp build info       → 写 out/build.json（含本次 commit SHA） │
+│ 9. touch out/.nojekyll    → 防止 Jekyll 忽略 _next/ 目录          │
+│10. actions/configure-pages@v5（enablement: true）→ 自动开 Pages   │
+│11. actions/upload-pages-artifact@v3  → 上传 out/ 作为 artifact     │
 └─────────────────────────────────────────────────────────────────┘
                             │ needs: build
                             ▼
-┌─ Job: deploy（ubuntu-latest）───────────────────────────────────┐
-│ 9. actions/deploy-pages@v4 → 发布到 github-pages 环境             │
+┌─ Job: deploy（timeout 10min · 组 pages-deploy · 不可取消）────────┐
+│12. actions/deploy-pages@v4 → 发布到 github-pages 环境             │
+└─────────────────────────────────────────────────────────────────┘
+                            │ needs: [build, deploy]
+                            ▼
+┌─ Job: verify（timeout 10min）────────────────────────────────────┐
+│13. 轮询 <site>/build.json?t=<时间戳>，直到里面的 sha == 本次 commit │
+│14. 冒烟 6 个路由：/ /welcome/ /login/ /signup/ /bento/ /resume/    │
+│15. 写 job summary（提交 / 站点 / 日志链接）                        │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+**三个设计决策（不要改）**：
+
+1. 用 `npm ci` 而不是 `npm install`。`npm ci` 严格照 `package-lock.json` 装，
+   装不上就直接报错 —— 避免「本地好的、线上装的却是另一个版本」这种最费时间的鬼故事。
+   （2026-09-29 校验过 `package-lock.json` 与 `package.json` 完全同步，`lockfileVersion: 3`。）
+   ⚠️ **代价：改了 `package.json` 的依赖后，必须重新跑一次 `npm install` 把 lock 一起提交**，
+   否则 CI 会因两者不一致而红。
+2. `configure-pages@v5` 带 `enablement: true`。仓库新建时 Pages 默认**未开启**，
+   首次推送的 run 会在 `Setup Pages` 步骤必然失败。加上这个参数后，CI 会**自动以
+   "GitHub Actions" 为源开启 Pages**，长期自愈，无需手动点设置。
+3. `verify` job 是「上线自检」，不是装饰。它读产物里的 `build.json` 反查线上，
+   确认真的换了版本，再逐路由冒烟 —— 把「到底发出去没有」从人肉盯屏变成流水线的一步。
+
+**并发组的两段式设计**（`build` 可取消 / `deploy` 不可取消）：
+
+- `build` 用 `group: pages-build-${{ github.ref }}` + `cancel-in-progress: true`。
+  连推两次时，第一次的构建立刻被掐掉，不会排队烧 runner 时间。
+- `deploy` 用 `group: pages-deploy` + `cancel-in-progress: false`。
+  部署中途被掐断会留下半成品站点，所以这一步**不允许**被并发取消。
+
+**`out/build.json` 是部署探针**（本次新增）：
+
+```json
+{"sha":"<完整 commit SHA>","short":"<前 7 位>","ref":"main","builtAt":"<UTC 时间>","runId":"<run id>"}
+```
+
+它是构建后在 `out/` 里现写的纯静态文件，不污染源码。用途有二：
+① `verify` job 用它确认线上是否已是本次 commit；② `deploy.ps1` 用它把
+「等 CI 跑完」这件事变成可观测的轮询，**不需要任何 GitHub token 或 API**。
+所有探测都带 `?t=<时间戳>` 绕 CDN 缓存。
 
 **需要的权限**（已在 workflow 里声明）：
 
@@ -1584,17 +1645,39 @@ permissions:
   id-token: write
 ```
 
-**两个设计决策（不要改）**：
+> 权限只多不少：`pages: write` 是发布 Pages 必需，`id-token: write` 是
+> `deploy-pages` 走 OIDC 拿部署令牌必需。少任何一个，deploy 步骤都会 401。
 
-1. 用 `npm install` 而不是 `npm ci`。因为 `package-lock.json` 与 `package.json` 存在不同步的历史，
-   `npm ci` 会因为严格校验而失败。
-2. `configure-pages@v5` 带 `enablement: true`。仓库新建时 Pages 默认**未开启**，
-   首次推送的 run 会在 `Setup Pages` 步骤必然失败。加上这个参数后，CI 会**自动以
-   "GitHub Actions" 为源开启 Pages**，长期自愈，无需手动点设置。
+### 5.4 发布工具链（`build.ps1` / `deploy.ps1`）
 
-### 5.4 一键发布脚本（`deploy.ps1`）
+两个脚本分工明确：**一个只管本机构建，一个只管把东西发出去并盯到落地。**
 
-**用法**：
+#### 5.4.1 本地构建（`build.ps1`）
+
+```powershell
+.\build.ps1
+```
+
+产出 `out\`。它把本机踩过的三个坑封在里面了：
+
+| 坑 | 症状 | 脚本怎么处理 |
+|---|---|---|
+| 环境里被注入 `NODE_OPTIONS` 之类 | `next build` 报 `EPERM: .next\trace` | 在进程里清掉这些变量，并绕开 npm 脚本（npm 会二次注入） |
+| 整目录删除 `.next` 撞批量删除护栏 | 构建开场就失败 | 先试**直接删除**（最干净），删不掉再**改名挪走**（rename 不计入删除配额） |
+| dev server 与 build 抢同一个 `.next` | `Cannot find module './chunks/ssr/[turbopack]_runtime.js'` | 开场检测 9002 端口并警告 |
+
+> 🔴 **2026-09-29 实测补充：光把 `.next` 改名挪走，不保证构建一定成功。**
+> 项目里残留着 `.next-prev-*` / `.next-junk-*` 之类的旧目录时，
+> 构建仍可能报 `EPERM: operation not permitted, open '.next\trace'`
+> （日志停在 `Creating an optimized production build ...` 之后）。
+> **先彻底删掉 `.next`、并确认 9002 上没有 dev server，再构建，才是稳的。**
+> 这也是脚本改成「先删、删不掉才改名」的原因。
+
+> 🔴 脚本里的构建命令是**裸 node**：`node .\node_modules\next\dist\bin\next build`。
+> 不要"顺手优化"成 `npm run build` —— 那样 npm 会重新注入刚被清掉的环境变量，
+> 又回到 `EPERM` 那个坑里。
+
+#### 5.4.2 一键发布（`deploy.ps1`）
 
 ```powershell
 .\deploy.ps1 "说明这次改了什么"
@@ -1606,31 +1689,70 @@ permissions:
 powershell -ExecutionPolicy Bypass -File .\deploy.ps1 "说明"
 ```
 
-**它做的 4 步 + 1 个自检**：
+可加的参数：
+
+| 参数 | 作用 |
+|---|---|
+| `-Build` | 推送前先跑一次 `build.ps1`，本地验完再发 |
+| `-SkipCheck` | 跳过 `tsc --noEmit` 类型检查 |
+| `-NoWatch` | 只推送，不站在那儿等线上 |
+| `-Site <url>` | 换一个域名做上线探测（默认 `https://gelun.eu.cc`） |
+
+**它做的 6 步**：
 
 | 步骤 | 动作 | 失败处理 |
 |---|---|---|
-| 1/4 | `git add -A` | 检查 `$LASTEXITCODE`，非 0 则退出 |
-| 2/4 | `git commit -m <消息>` | 无改动时自动跳过；检查退出码 |
-| 3/4 | `git push origin main` | **最多重试 3 次，间隔 4 秒** |
-| 4/4 | `git fetch origin main` + 比对 `HEAD` 与 `FETCH_HEAD` | 不一致则报告 MISMATCH 并退出 |
-| — | 打印 Actions 与线上地址 | |
+| 0/6 | 校验在 git 仓库里、且分支就是 `main` | 非 main 直接退出，并提示怎么切回来 |
+| 1/6 | `tsc --noEmit` 类型检查 | 不通过就退出（`-SkipCheck` 可跳过） |
+| 2/6 | 可选：调 `build.ps1` 本地构建 | 构建失败则不推送 |
+| 3/6 | `git add -A` + `git commit` | 无改动时自动跳过，只做推送 |
+| 4/6 | `git push origin main` | 先标准姿势；失败退 **openssl 后端**重试；成败一律以 `ls-remote` 比对为准 |
+| 5/6 | 轮询 `<site>/build.json`，直到 `sha` == 本地 HEAD | 7 分钟没等到就退出，并列出排查方向 |
+| 6/6 | 冒烟 6 个路由 + 自托管字体 | 有非 200 就退出，并列出是哪几个 |
 
-> 🔴 **为什么第 3 步要重试、第 4 步要比对？**
-> 本机环境里 `git push` 会**偶发静默失败**：返回 `exit=128` 但 stderr 完全为空，
-> 看起来像成功、实际没推上去（定位到是 git 凭据管理器在非交互上下文下取 token 失败）。
-> 所以脚本必须靠"重试 + 拉回远端比对 SHA"来兜底，**光看退出码不够**。
->
-> ⚠️ **2026-09-24 补充**：现在**重试 3 次也已经救不回来了** —— 失败原因换成了
-> `schannel CRYPT_E_NO_REVOCATION_CHECK`（见 §8.9 的 🔴 更新）。
-> 也就是说：**`deploy.ps1` 会一路 `exit 1`，得手动补一次 §8.9 的绕法推送。**
-> 脚本第 1、2 步（add + commit）照样有效，所以别重跑整个脚本 ——
-> 直接补推送即可，避免产生重复提交。
+**为什么第 4 步要内建 openssl 后端？**
 
-> 🔴 **脚本的职责边界**：它**只负责推送**，不执行构建。
+本机的 `schannel` 会报 `CRYPT_E_NO_REVOCATION_CHECK`（吊销功能无法检查证书是否吊销，
+受限网络下必然发生，见 §8.9）。以前要靠手工敲绕法，现在脚本自己会退回去重试。
+
+> 🔴 **push 的退出码不能当结论**：`git push` 被中断时可能返回非 0，
+> 但数据其实已经传完了。所以脚本一律拿 `git ls-remote origin refs/heads/main`
+> 与本地 `HEAD` 比对来判定成败。
+
+**第 5 步为什么能替代「等 CI」？**
+
+因为 CI 构建时会往产物里写 `out/build.json`（含本次 commit SHA，见 §5.3）。
+脚本轮询这个文件，**不需要 GitHub token、不需要 API、不受限流影响**，
+拿到就等于「线上真的换成我这次提交了」。所有请求都带 `?t=<时间戳>` 绕 CDN 缓存。
+
+> ⚠️ **首次上线时 `build.json` 还不存在**，探测会一直报「没探到」，属正常现象。
+
+**它什么时候不会触发构建？**
+
+`deploy.ps1` 的忽略清单与 workflow 的 `paths-ignore` **完全一致**：
+
+```
+*.md   LICENSE   .gitignore   .workbuddy/*   deploy.ps1   build.ps1
+```
+
+如果这次提交**只**动了这些文件，流水线不会触发（省 CI 时间），
+脚本会识别出来并直接告诉你，而不是傻等 7 分钟。需要立刻发一次的话，
+去 Actions 页面点 `Run workflow`，或把改动夹带进一次代码提交。
+
+> 🔴 **脚本的职责边界**：它负责推送，**不负责构建**。
 > 构建部署是推送之后由 GitHub Actions 接手的（接力关系，不是包含关系）。
 > 因此：**推送失败 = 构建不会发生**；反之**推送成功 ≠ 构建成功**——
-> 构建失败要去 https://github.com/GelunPan/pgl-tools/actions 看日志。
+> 但脚本第 5、6 步会替你确认后者，真失败它会明确报出来并指向 Actions 日志。
+
+#### 5.4.3 日常怎么用
+
+| 我想做什么 | 命令 |
+|---|---|
+| 本地预览改动 | `npm run dev`（9002） |
+| 只验一次构建产物 | `.\build.ps1` |
+| 推上去就行，不等 | `.\deploy.ps1 "说明" -NoWatch` |
+| 完整发布并确认落地 | `.\deploy.ps1 "说明"` |
+| 稳一点，发之前先本地构建 | `.\deploy.ps1 "说明" -Build` |
 
 ### 5.5 两条路径：本地开发 vs 线上站点
 
@@ -1790,7 +1912,7 @@ curl -sI https://gelunpan.github.io/pgl-tools/ | head -2
 | 39 | **预览服务的进程 cwd 不要落在项目的 `out/` 里** | 否则 `next build` 收尾清理旧产物时会失败：`EBUSY: rmdir 'out'` / `[safe-delete] … out: Error during a trash operation`（Windows 上 cwd 在目录里就等于锁住它，删/移都不让）。两个办法：① 把 `out/` 复制到项目外再 serve；② **从项目根用 `python -m http.server 9100 --directory out`** 起服务 —— 进程 cwd 在项目根，`out/` 没被锁，构建照跑（2026-09-24 实测） |
 | 40 | 构建日志不要写在项目内 | 会被 git 提交。写到项目外，或用完立即删 |
 | 41 | 提交信息含中文时不要用 `Out-File -Encoding ascii` | 中文会被替换成 `?`。用 UTF-8 无 BOM 写入后 `git commit -F <文件>` |
-| 42 | 🔴 **本机 `git push` 必须走 §8.9 的绕法（读凭据文件 + `sslBackend=openssl`），否则必失败** | 2026-09-24 17:06 实测：沙箱内静默 `exit=128`（stderr 空）；**非沙箱**下秒报 `schannel: CRYPT_E_NO_REVOCATION_CHECK`。**`deploy.ps1` 只会打印 `exit 1`，三次重试都捞不到信息**。判断成败一律以 `git ls-remote origin refs/heads/main` 是否等于本地 `HEAD` 为准。见 §8.9 |
+| 42 | 🔴 **本机 `git push` 走标准姿势会失败，需要 `sslBackend=openssl`** | 2026-09-24 17:06 实测：沙箱内静默 `exit=128`（stderr 空）；**非沙箱**下秒报 `schannel: CRYPT_E_NO_REVOCATION_CHECK`。判断成败一律以 `git ls-remote origin refs/heads/main` 是否等于本地 `HEAD` 为准，**光看退出码不算数**。✅ **2026-09-29 起 `deploy.ps1` 已内建这条退路**：标准姿势失败会自动换 openssl 后端重试，不用再手工敲。见 §8.9 |
 | 43 | **验证动效别靠肉眼，逐帧量** | 跨页面幕布动效 → `workspace\trace-dark.js`（用法 `BASE=<url> node trace-dark.js`）；bento 的入场 / 各卡动效 → `bento-converge.js` / `bento-anim.js` / `bento-reduced-motion.js`，清单见 4.7.15。前提：在该目录 `npm i puppeteer-core`，用本机 Chrome |
 | 44 | 🔴 **同一个项目同时只能有一个 dev server** | 两个 dev 进程共写同一个 `.next`，后跑的那个会把先跑的产物覆盖掉，先跑的那个随即整站 500，报 `Cannot find module './chunks/ssr/[turbopack]_runtime.js'`（`_document.js` / `page.js` 里 `require` 的分片被删了）。**尤其别用 `next dev`（默认 webpack）去配 `next dev --turbopack`** —— 两套产物格式不同，互相破坏是必然的。需要跑探针脚本时**直接复用已经在跑的 9002**，不要另起一个（见 6.3 第 46 条） |
 | 45 | **dev server 的端口** | `npm run dev` 固定 **9002**，探针脚本的默认地址也已经是 `http://127.0.0.1:9002/bento/`。注意项目开了 `trailingSlash`，`/bento` 会 **308 跳到 `/bento/`**，直接探 `/bento` 会看着像异常 |
@@ -1865,15 +1987,16 @@ curl -sI https://gelunpan.github.io/pgl-tools/ | head -2
 
 ```powershell
 npm run dev              # 1. 本地看效果，边改边刷新（秒级生效）
-npm run build            # 2. 确认能正常构建（可选但推荐）
-.\deploy.ps1 "说明"       # 3. 推到线上（约 1 分钟后生效）
+.\build.ps1              # 2. 确认能构建（可选但推荐，见 §5.4.1）
+.\deploy.ps1 "说明"       # 3. 提交 + 推送 + 等上线 + 冒烟，一条命令到底（见 §5.4.2）
 ```
 
-**发布后自查清单**：
+**发布后自查清单**（前两条已经被 `deploy.ps1` 的第 5、6 步自动做掉了）：
 
-- [ ] Actions 页面最新 run 是 ✅ build + ✅ deploy
+- [ ] `deploy.ps1` 打印出「线上已切到 `xxxxxxx`」+ 6 个 ✅
+- [ ] Actions 页面最新 run 是 ✅ build + ✅ deploy + ✅ verify
 - [ ] 打开 **https://gelun.eu.cc/** 能看到登录页（而不是 404 或白屏）
-- [ ] `/login/`、`/signup/`、`/welcome/`、`/bento/` 均可正常访问与跳转
+- [ ] `/login/`、`/signup/`、`/welcome/`、`/bento/`、`/resume/` 均可正常访问与跳转
 - [ ] 浏览器 DevTools → Application → Local Storage 里有 `careercompass_users` / `careercompass_session`
 - [ ] 🔴 若白屏：先按 F12 看 Network，如果 `_next/...` 报 404 → **是 basePath 与站点位置不匹配**，
       去 Actions 日志看 `Resolve basePath` 步骤走了哪个分支（见 §5.2.1）
@@ -2135,8 +2258,12 @@ password=<…>
 > ```
 >
 > 症状是 **`deploy.ps1` 只会打印 `exit 1`、三次重试全军覆没、什么错误都看不到**
-> （重试循环把 stderr 吞了）。**结论：本机现在每次推送都得走下面的绕法。**
+> （当时的重试循环把 stderr 吞了）。**结论：本机推送需要 `sslBackend=openssl`。**
 > 好消息是绕法本身很稳 —— 当天从读凭据到 push 成功只花了十几秒。
+>
+> ✅ **2026-09-29：`deploy.ps1` 已把这条退路内建。** 它先试标准姿势，
+> 失败会自动换 openssl 后端重试，不需要再手工敲下面的命令。
+> 下面这段保留原样，供**脚本之外**排查时使用。
 >
 > ⚠️ 沙箱内会更隐蔽：直接报 `exit=128` 且 **stderr 完全为空**（＝约束 42），
 > 所以**判断成败一律以 `git ls-remote origin refs/heads/main` 是否等于本地 HEAD 为准**。
@@ -2210,12 +2337,16 @@ Actions 日志        https://github.com/GelunPan/pgl-tools/actions
 本地开发            http://localhost:9002   （端口由 package.json 固定）
 dev 缓存坏了        npm run dev:fresh       （= 清掉 .next 再重启，见 8.6）
 
-构建命令            npm run build           → 产出 out/
-构建产物            约 1.3 MB / 46 个文件（这是 /bento 之前的实测值；新增该路由后未复测）
-发布命令            .\deploy.ps1 "说明"
-发布耗时            约 1 分钟
+构建命令            .\build.ps1             → 产出 out/（封装了本机的三个坑，见 5.4.1）
+                    npm run build           → 同样的构建；本机直接跑可能报 EPERM，CI 上用没问题
+构建产物            76 个文件 / 约 1.5 MB（2026-09-29 本机实测；含自托管字体 10 个、技术 logo 16 个）
+发布命令            .\deploy.ps1 "说明"     → 提交 + 推送 + 等上线 + 6 路由冒烟
+发布耗时            约 2～4 分钟（含 Actions 构建 + 部署 + 上线探测）
 CI 触发条件         push 到 main / 手动 workflow_dispatch
+                    ⚠️ 只改 *.md / LICENSE / .gitignore / .workbuddy/* / deploy.ps1 / build.ps1 不触发
 CI Node 版本        20
+CI 结构             build（可被并发取消）→ deploy（不可取消）→ verify（上线自检 + 冒烟）
+上线探针            <site>/build.json  ← 构建时写入，含本次 commit SHA，见 5.3
 
 localStorage key    careercompass_users      已注册用户数组（★不可改）
 localStorage key    careercompass_session    当前登录会话（★不可改）
@@ -2274,8 +2405,10 @@ Bento 设计系统（/bento）
 4. **不要自作主张"优化"**：不要删 node_modules、不要清空 out/、不要改 localStorage key、
    不要给项目加后端。用户明确表示过在意的是**代码简洁**和**构建产物小**，不是依赖体积。
 5. **发布是显式动作**。改完代码不会自动上线，必须跑 `deploy.ps1` 或手动 push。
-6. **推送与构建是两段**。`deploy.ps1` 只保证"代码到了 GitHub"，
-   "站点构建成功"要去 Actions 页面看。
+   ⚠️ **只改文档（`*.md`）不会触发流水线** —— 这是有意的（省 CI 时间，见 §5.3）。
+6. **推送与构建仍是两段，但 `deploy.ps1` 已经替你盯到底**。它先保证"代码到了 GitHub"，
+   再轮询 `<site>/build.json` 确认"线上真的换成这次 commit 了"，最后冒烟 6 个路由。
+   要看每一行日志才去 Actions 页面。
 
 ---
 

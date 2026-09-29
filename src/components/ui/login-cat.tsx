@@ -21,7 +21,7 @@ import { usePetSequence } from "@/hooks/use-pet";
 
    ## 造型：和小潘给的参考图（写实风黑猫）**同一套色板**
 
-   毛 `#302D26`（暖调炭黑）/ 受光面 `#3A362D` / 眼 `#C6D74F`（黄绿）+ 细竖缝 /
+   毛 `#302D26`（暖调炭黑）/ 受光面 `#3A362D` / 眼 `#C6D74F`（黄绿）+ **大圆瞳孔** /
    鼻嘴 `#584F4B` `#16130F` / 耳内 `#4A4038` / 深色胡须 `#4A4438`。
    参考图里**没有**项圈铃铛、腮红、白肚子、粉鼻子 —— 这一版都没有。
 
@@ -84,7 +84,8 @@ export function LoginCat({
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     // 头在 viewBox 的偏左位置（78/200 = 39%），脸高 60/146 = 41%
-    const MAX_X = 4.6;
+    // 虹膜 rx 11 / ry 12，圆瞳孔半径 6.8 → 水平最多 11 - 6.8 = 4.2，取 4.0 留余量
+    const MAX_X = 4.0;
     const MAX_Y = 2.8;
     let raf = 0;
 
@@ -224,7 +225,7 @@ export function LoginCat({
           {/* 口鼻区：比主色亮一档的暖灰 */}
           <ellipse cx="78" cy="78" rx="22" ry="15" fill="#3A362D" />
 
-          {/* ---- 眼睛：黄绿虹膜 + 细竖缝（照参考图）---- */}
+          {/* ---- 眼睛：黄绿虹膜 + 大圆瞳孔（2026-09-29 由细竖缝改成圆的）---- */}
           {happy ? (
             /* 眯眼笑 ^ ^，🔴 必须是**亮色** —— 深色画在黑脸上等于没画 */
             <>
@@ -269,16 +270,16 @@ export function LoginCat({
               {/* 上缘更亮的一层黄 */}
               <ellipse cx="62" cy="56" rx="7.6" ry="5.8" fill="#DCE566" opacity="0.75" />
               <ellipse cx="94" cy="56" rx="7.6" ry="5.8" fill="#DCE566" opacity="0.75" />
-              {/* 竖缝 + 两处高光：跟着 --gaze-x / --gaze-y 走 */}
+              {/* 大圆瞳孔 + 两处高光：跟着 --gaze-x / --gaze-y 走 */}
               <g className="cat-eye-gaze">
-                <ellipse cx="62" cy="60" rx="1.9" ry="8" fill="#14120F" />
-                <circle cx="64.2" cy="56.2" r="2.1" fill="#FFFFFF" opacity="0.95" />
-                <circle cx="60" cy="64" r="1.2" fill="#FFFFFF" opacity="0.5" />
+                <circle cx="62" cy="60" r="6.8" fill="#14120F" />
+                <circle cx="64.2" cy="56.2" r="2.2" fill="#FFFFFF" opacity="0.95" />
+                <circle cx="59.8" cy="63.6" r="1.3" fill="#FFFFFF" opacity="0.5" />
               </g>
               <g className="cat-eye-gaze">
-                <ellipse cx="94" cy="60" rx="1.9" ry="8" fill="#14120F" />
-                <circle cx="96.2" cy="56.2" r="2.1" fill="#FFFFFF" opacity="0.95" />
-                <circle cx="92" cy="64" r="1.2" fill="#FFFFFF" opacity="0.5" />
+                <circle cx="94" cy="60" r="6.8" fill="#14120F" />
+                <circle cx="96.2" cy="56.2" r="2.2" fill="#FFFFFF" opacity="0.95" />
+                <circle cx="91.8" cy="63.6" r="1.3" fill="#FFFFFF" opacity="0.5" />
               </g>
             </>
           )}
